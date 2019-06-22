@@ -1,20 +1,27 @@
 export interface DataSignal<T> {
+  // The Setter Signature
   (): T;
+
+  // The Setter Signature
   (val: T): T;
 }
 
 // Public interface
 
+type GetterFn<T> = () => T;
+type SetterFn<T> = (value: T) => T;
+
 type ReducerFn<T> = (v: T) => T;
 type QueryFn<T> = () => T;
-type ComputationFn<T> = ReducerFn<T> | QueryFn<T>;
+
+// TODO: Express ComputationFn as a union of ReducerFn and QueryFn
+// type ComputationFn<T> = ReducerFn<T> | QueryFn<T>;
+type ComputationFn<T> = (v?: T) => T;
 
 // Computation constructors
-// <T>(fn: () => T): () => T;
-// <T>(fn: (v: T) => T, seed: T): () => T;
-export function createMemo<T>(fn: () => T): () => T;
-export function createMemo<T>(fn: (v: T) => T, seed: T): () => T;
-export function createMemo<T>(fn: (v?: T) => T, value?: T): () => T {
+export function createMemo<T>(fn: QueryFn<T>): GetterFn<T>;
+export function createMemo<T>(fn: ReducerFn<T>, seed: T): GetterFn<T>;
+export function createMemo<T>(fn: ComputationFn<T>, value?: T): GetterFn<T> {
   if (Owner === null)
     console.warn(
       "computations created without a root or parent will never be disposed"
@@ -70,6 +77,7 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
   return result;
 }
 
+// TODO: overload definitions
 //   on<T>(ev: () => any, fn: () => T): () => T;
 //   on<T>(ev: () => any, fn: (v: T) => T, seed: T, onchanges?: boolean): () => T;
 export function createDependentEffect<T>(
@@ -102,6 +110,7 @@ function callAll(ss: (() => any)[]) {
   };
 }
 
+// TODO: Overload definitions
 // Not documented
 // No tests
 // Used only in the benchmarks
@@ -112,8 +121,7 @@ export function createEffect<T>(fn: (v: T | undefined) => T, value?: T): void {
 }
 
 // Data signal constructors
-// data<T>(value: T): DataSignal<T>;
-export function createSignal<T>(value: T): (value?: T) => T {
+export function createSignal<T>(value: T): DataSignal<T> {
   const node = new DataNode(value);
 
   return function data(value?: T): T {
@@ -154,8 +162,7 @@ export function createValueSignal<T>(
 }
 
 // Batching changes
-// freeze<T>(fn: () => T): T;
-export function freeze<T>(fn: () => T): T {
+export function freeze<T>(fn: QueryFn<T>): T {
   let result: T = undefined!;
 
   if (RunningClock !== null) {
@@ -176,8 +183,7 @@ export function freeze<T>(fn: () => T): T {
 }
 
 // Sampling a signal
-// sample<T>(fn: () => T): T;
-export function sample<T>(fn: () => T): T {
+export function sample<T>(fn: QueryFn<T>): T {
   let result: T;
   const listener = Listener;
 
