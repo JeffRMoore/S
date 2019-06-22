@@ -262,6 +262,8 @@ class Clock {
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
 }
 
+const NOTHING_PENDING = {};
+
 /**
  * Represents a buffered data value which logReads and log
  */
@@ -316,6 +318,11 @@ class DataNode {
       }
     }
     return value!; // TODO: This declaration seems type-shady is this really true or necessary?
+  }
+
+  applyPendingChange() {
+    this.value = this.pending;
+    this.pending = NOTHING_PENDING;
   }
 }
 
@@ -377,7 +384,6 @@ class Queue<T> {
 }
 
 // Constants
-const NOTHING_PENDING = {};
 const CURRENT = 0;
 const STALE = 1;
 const RUNNING = 2;
@@ -601,8 +607,7 @@ function run(clock: Clock) {
 }
 
 function applyDataChange(data: DataNode) {
-  data.value = data.pending;
-  data.pending = NOTHING_PENDING;
+  data.applyPendingChange();
   if (data.log) markComputationsStale(data.log);
 }
 
