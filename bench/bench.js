@@ -44,7 +44,7 @@ function run(fn, n, scount) {
     var start,
         end;
 
-    S.root(function () {
+    createRoot(function () {
         // run 3 times to warm up 
         var sources = createDataSignals(scount, []);
         fn(n / 100, sources);
@@ -80,7 +80,7 @@ function run(fn, n, scount) {
 
 function createDataSignals(n, sources) {
     for (var i = 0; i < n; i++) {
-        sources[i] = S.data(i);
+        sources[i] = createSignal(i);
     }
     return sources;
 }
@@ -196,27 +196,27 @@ function createComputations1000to1(n, sources) {
 }
 
 function createComputation0(i) {
-    S(function () { return i; });
+    createMemo(function () { return i; });
 }
 
 function createComputation1(s1) {
-    S(function () { return s1(); });
+    createMemo(function () { return s1(); });
 }
 
 function createComputation2(s1, s2) {
-    S(function () { return s1() + s2(); });
+    createMemo(function () { return s1() + s2(); });
 }
 
 function createComputation4(s1, s2, s3, s4) {
-    S(function () { return s1() + s2() + s3() + s4(); });
+    createMemo(function () { return s1() + s2() + s3() + s4(); });
 }
 
 function createComputation8(s1, s2, s3, s4, s5, s6, s7, s8) {
-    S(function () { return s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8(); });
+    createMemo(function () { return s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8(); });
 }
 
 function createComputation1000(ss, offset) {
-    S(function () {
+    createMemo(function () {
         var sum = 0;
         for (var i = 0; i < 1000; i++) {
             sum += ss[offset + i]();
@@ -227,7 +227,7 @@ function createComputation1000(ss, offset) {
 
 function updateComputations1to1(n, sources) {
     var s1 = sources[0],
-        c = S(function () { return s1(); });
+        c = createMemo(function () { return s1(); });
     for (var i = 0; i < n; i++) {
         s1(i);
     }
@@ -236,7 +236,7 @@ function updateComputations1to1(n, sources) {
 function updateComputations2to1(n, sources) {
     var s1 = sources[0],
         s2 = sources[1],
-        c = S(function () { return s1() + s2(); });
+        c = createMemo(function () { return s1() + s2(); });
     for (var i = 0; i < n; i++) {
         s1(i);
     }
@@ -247,7 +247,7 @@ function updateComputations4to1(n, sources) {
         s2 = sources[1],
         s3 = sources[2],
         s4 = sources[3],
-        c = S(function () { return s1() + s2() + s3() + s4(); });
+        c = createMemo(function () { return s1() + s2() + s3() + s4(); });
     for (var i = 0; i < n; i++) {
         s1(i);
     }
@@ -255,7 +255,7 @@ function updateComputations4to1(n, sources) {
 
 function updateComputations1000to1(n, sources) {
     var s1 = sources[0],
-        c = S(function () {
+        c = createMemo(function () {
             var sum = 0;
             for (var i = 0; i < 1000; i++) {
                 sum += sources[i]();
@@ -269,8 +269,8 @@ function updateComputations1000to1(n, sources) {
 
 function updateComputations1to2(n, sources) {
     var s1 = sources[0],
-        c1 = S(function () { return s1(); }),
-        c2 = S(function () { return s1(); });
+        c1 = createMemo(function () { return s1(); }),
+        c2 = createMemo(function () { return s1(); });
     for (var i = 0; i < n / 2; i++) {
         s1(i);
     }
@@ -278,10 +278,10 @@ function updateComputations1to2(n, sources) {
 
 function updateComputations1to4(n, sources) {
     var s1 = sources[0],
-        c1 = S(function () { return s1(); }),
-        c2 = S(function () { return s1(); }),
-        c3 = S(function () { return s1(); }),
-        c4 = S(function () { return s1(); });
+        c1 = createMemo(function () { return s1(); }),
+        c2 = createMemo(function () { return s1(); }),
+        c3 = createMemo(function () { return s1(); }),
+        c4 = createMemo(function () { return s1(); });
     for (var i = 0; i < n / 4; i++) {
         s1(i);
     }
@@ -290,7 +290,7 @@ function updateComputations1to4(n, sources) {
 function updateComputations1to1000(n, sources) {
     var s1 = sources[0];
     for (var i = 0; i < 1000; i++) {
-        S(function () { return s1(); });
+        createMemo(function () { return s1(); });
     }
     for (var i = 0; i < n / 1000; i++) {
         s1(i);

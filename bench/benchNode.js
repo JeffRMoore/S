@@ -65,8 +65,8 @@ function run(fn, n, scount) {
 
     sideEffect = 0;
 
-    S.root(function () {
-        //S.freeze(function () {
+    createRoot(function () {
+        //freeze(function () {
         // run 3 times to warm up 
         var sources = createDataSignals(scount, []);
         fn(n / 100, sources);
@@ -119,7 +119,7 @@ function readToplevelSignal(n, sources) {
 }
 
 function readWatchedSignal(n, sources) {
-    S.effect(function () {
+    createEffect(function () {
         for (var i = 0; i < n; i++) {
             sideEffect += sources[i].current()
         }
@@ -127,10 +127,10 @@ function readWatchedSignal(n, sources) {
 }
 
 function sampleNoSignal(n, sources) {
-    S.effect(function () {
+    createEffect(function () {
         var fn = () => i;
         for (var i = 0; i < n; i++) {
-            sideEffect += S.sample(fn);
+            sideEffect += sample(fn);
         }
     });
 }
@@ -138,15 +138,15 @@ function sampleNoSignal(n, sources) {
 function sampleToplevelSignal(n, sources) {
     var fn = () => sources[i].current();
     for (var i = 0; i < n; i++) {
-        sideEffect += S.sample(fn);
+        sideEffect += sample(fn);
     }
 }
 
 function sampleWatchedSignal(n, sources) {
-    S.effect(function () {
+    createEffect(function () {
         var fn = () => sources[i].current();
         for (var i = 0; i < n; i++) {
-            sideEffect += S.sample(fn);
+            sideEffect += sample(fn);
         }
     });
 }
@@ -262,27 +262,27 @@ function createComputations1000to1(n, sources) {
 }
 
 function createComputation0(i) {
-    S.effect(() => sideEffect += i);
+    createEffect(() => sideEffect += i);
 }
 
 function createComputation1(s1) {
-    S.effect(() => sideEffect += s1.current());
+    createEffect(() => sideEffect += s1.current());
 }
 
 function createComputation2(s1, s2) {
-    S.effect(() => sideEffect += s1.current() + s2.current());
+    createEffect(() => sideEffect += s1.current() + s2.current());
 }
 
 function createComputation4(s1, s2, s3, s4) {
-    S.effect(() => sideEffect += s1.current() + s2.current() + s3.current() + s4.current());
+    createEffect(() => sideEffect += s1.current() + s2.current() + s3.current() + s4.current());
 }
 
 function createComputation8(s1, s2, s3, s4, s5, s6, s7, s8) {
-    S.effect(() => sideEffect += s1.current() + s2.current() + s3.current() + s4.current() + s5.current() + s6.current() + s7.current() + s8.current());
+    createEffect(() => sideEffect += s1.current() + s2.current() + s3.current() + s4.current() + s5.current() + s6.current() + s7.current() + s8.current());
 }
 
 function createComputation1000(ss, offset) {
-    S.effect(() => {
+    createEffect(() => {
         var sum = 0;
         for (var i = 0; i < 1000; i++) {
             sum += ss[offset + i].current();
@@ -293,7 +293,7 @@ function createComputation1000(ss, offset) {
 
 function updateComputations1to1(n, sources) {
     var s1 = sources[0],
-        c = S.effect(() => s1.current());
+        c = createEffect(() => s1.current());
     for (var i = 0; i < n; i++) {
         s1.next(i);
     }
@@ -302,7 +302,7 @@ function updateComputations1to1(n, sources) {
 function updateComputations2to1(n, sources) {
     var s1 = sources[0],
         s2 = sources[1],
-        c = S.effect(() => s1.current() + s2.current());
+        c = createEffect(() => s1.current() + s2.current());
     for (var i = 0; i < n; i++) {
         s1.next(i);
     }
@@ -313,7 +313,7 @@ function updateComputations4to1(n, sources) {
         s2 = sources[1],
         s3 = sources[2],
         s4 = sources[3],
-        c = S.effect(() => s1.current() + s2.current() + s3.current() + s4.current());
+        c = createEffect(() => s1.current() + s2.current() + s3.current() + s4.current());
     for (var i = 0; i < n; i++) {
         s1.next(i);
     }
@@ -321,7 +321,7 @@ function updateComputations4to1(n, sources) {
 
 function updateComputations1000to1(n, sources) {
     var s1 = sources[0],
-        c = S.effect(() => {
+        c = createEffect(() => {
             var sum = 0;
             for (var i = 0; i < 1000; i++) {
                 sum += sources[i].current();
@@ -335,8 +335,8 @@ function updateComputations1000to1(n, sources) {
 
 function updateComputations1to2(n, sources) {
     var s1 = sources[0],
-        c1 = S.effect(() => s1.current()),
-        c2 = S.effect(() => s1.current());
+        c1 = createEffect(() => s1.current()),
+        c2 = createEffect(() => s1.current());
     for (var i = 0; i < n / 2; i++) {
         s1.next(i);
     }
@@ -344,10 +344,10 @@ function updateComputations1to2(n, sources) {
 
 function updateComputations1to4(n, sources) {
     var s1 = sources[0],
-        c1 = S.effect(() => s1.current()),
-        c2 = S.effect(() => s1.current()),
-        c3 = S.effect(() => s1.current()),
-        c4 = S.effect(() => s1.current());
+        c1 = createEffect(() => s1.current()),
+        c2 = createEffect(() => s1.current()),
+        c3 = createEffect(() => s1.current()),
+        c4 = createEffect(() => s1.current());
     for (var i = 0; i < n / 4; i++) {
         s1.next(i);
     }
@@ -356,7 +356,7 @@ function updateComputations1to4(n, sources) {
 function updateComputations1to1000(n, sources) {
     var s1 = sources[0];
     for (var i = 0; i < 1000; i++) {
-        S.effect(() => s1.current());
+        createEffect(() => s1.current());
     }
     for (var i = 0; i < n / 1000; i++) {
         s1.next(i);
