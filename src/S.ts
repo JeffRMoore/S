@@ -34,13 +34,13 @@ export interface DataSignal<T> {
 }
 
 // Public interface
-var S = <S>function S<T>(fn: (v: T | undefined) => T, value?: T): () => T {
+const S = <S>function S<T>(fn: (v: T | undefined) => T, value?: T): () => T {
   if (Owner === null)
     console.warn(
       "computations created without a root or parent will never be disposed"
     );
 
-  var { node, value: _value } = makeComputationNode(fn, value, false, false);
+  const { node, value: _value } = makeComputationNode(fn, value, false, false);
 
   if (node === null) {
     return function computation() {
@@ -59,21 +59,21 @@ Object.defineProperty(S, "default", { value: S });
 export default S;
 
 S.root = function root<T>(fn: (dispose: () => void) => T): T {
-  var owner = Owner,
-    disposer =
-      fn.length === 0
-        ? null
-        : function _dispose() {
-            if (root === null) {
-              // nothing to dispose
-            } else if (RunningClock !== null) {
-              RootClock.disposes.add(root);
-            } else {
-              dispose(root);
-            }
-          },
-    root = disposer === null ? UNOWNED : getCandidateNode(),
-    result: T;
+  const owner = Owner;
+  const disposer =
+    fn.length === 0
+      ? null
+      : function _dispose() {
+          if (root === null) {
+            // nothing to dispose
+          } else if (RunningClock !== null) {
+            RootClock.disposes.add(root);
+          } else {
+            dispose(root);
+          }
+        };
+  let root = disposer === null ? UNOWNED : getCandidateNode();
+  let result: T;
 
   Owner = root;
 
@@ -105,7 +105,7 @@ S.on = function on<T>(
   return S(on, seed);
 
   function on(value: T | undefined) {
-    var listener = Listener;
+    const listener = Listener;
     ev();
     if (onchanges) onchanges = false;
     else {
@@ -119,7 +119,7 @@ S.on = function on<T>(
 
 function callAll(ss: (() => any)[]) {
   return function all() {
-    for (var i = 0; i < ss.length; i++) ss[i]();
+    for (let i = 0; i < ss.length; i++) ss[i]();
   };
 }
 
@@ -128,7 +128,7 @@ S.effect = function effect<T>(fn: (v: T | undefined) => T, value?: T): void {
 };
 
 S.data = function data<T>(value: T): (value?: T) => T {
-  var node = new DataNode(value);
+  const node = new DataNode(value);
 
   return function data(value?: T): T {
     if (arguments.length === 0) {
@@ -143,15 +143,15 @@ S.value = function value<T>(
   current: T,
   eq?: (a: T, b: T) => boolean
 ): DataSignal<T> {
-  var node = new DataNode(current),
-    age = -1;
+  const node = new DataNode(current);
+  let age = -1;
   return function value(update?: T) {
     if (arguments.length === 0) {
       return node.current();
     } else {
-      var same = eq ? eq(current, update!) : current === update;
+      const same = eq ? eq(current, update!) : current === update;
       if (!same) {
-        var time = RootClock.time;
+        const time = RootClock.time;
         if (age === time)
           throw new Error(
             "conflicting values: " + update + " is not the same as " + current
@@ -166,7 +166,7 @@ S.value = function value<T>(
 };
 
 S.freeze = function freeze<T>(fn: () => T): T {
-  var result: T = undefined!;
+  let result: T = undefined!;
 
   if (RunningClock !== null) {
     result = fn();
@@ -186,8 +186,8 @@ S.freeze = function freeze<T>(fn: () => T): T {
 };
 
 S.sample = function sample<T>(fn: () => T): T {
-  var result: T,
-    listener = Listener;
+  let result: T;
+  const listener = Listener;
 
   Listener = null;
   result = fn();
@@ -311,8 +311,8 @@ class Queue<T> {
   }
 
   run(fn: (item: T) => void) {
-    var items = this.items;
-    for (var i = 0; i < this.count; i++) {
+    const items = this.items;
+    for (let i = 0; i < this.count; i++) {
       fn(items[i]!);
       items[i] = null!;
     }
@@ -321,21 +321,21 @@ class Queue<T> {
 }
 
 // Constants
-var NOTPENDING = {},
-  CURRENT = 0,
-  STALE = 1,
-  RUNNING = 2,
-  UNOWNED = new ComputationNode();
+const NOTPENDING = {};
+const CURRENT = 0;
+const STALE = 1;
+const RUNNING = 2;
+const UNOWNED = new ComputationNode();
 
 // "Globals" used to keep track of current system state
-var RootClock = new Clock(),
-  RunningClock = null as Clock | null, // currently running clock
-  Listener = null as ComputationNode | null, // currently listening computation
-  Owner = null as ComputationNode | null, // owner for new computations
-  LastNode = null as ComputationNode | null; // cached unused node, for re-use
+var RootClock = new Clock();
+var RunningClock = null as Clock | null; // currently running clock
+var Listener = null as ComputationNode | null; // currently listening computation
+var Owner = null as ComputationNode | null; // owner for new computations
+var LastNode = null as ComputationNode | null; // cached unused node, for re-use
 
 // Functions
-var makeComputationNodeResult = {
+const makeComputationNodeResult = {
   node: null as null | ComputationNode,
   value: undefined as any
 };
@@ -345,10 +345,10 @@ function makeComputationNode<T>(
   orphan: boolean,
   sample: boolean
 ): { node: ComputationNode | null; value: T } {
-  var node = getCandidateNode(),
-    owner = Owner,
-    listener = Listener,
-    toplevel = RunningClock === null;
+  const node = getCandidateNode();
+  const owner = Owner;
+  const listener = Listener;
+  const toplevel = RunningClock === null;
 
   Owner = node;
   Listener = sample ? null : node;
@@ -362,7 +362,7 @@ function makeComputationNode<T>(
   Owner = owner;
   Listener = listener;
 
-  var recycled = recycleOrClaimNode(node, fn, value, orphan);
+  const recycled = recycleOrClaimNode(node, fn, value, orphan);
 
   if (toplevel) finishToplevelComputation(owner, listener);
 
@@ -404,7 +404,7 @@ function finishToplevelComputation(
 }
 
 function getCandidateNode() {
-  var node = LastNode;
+  let node = LastNode;
   if (node === null) node = new ComputationNode();
   else LastNode = null;
   return node;
@@ -416,11 +416,11 @@ function recycleOrClaimNode<T>(
   value: T,
   orphan: boolean
 ) {
-  var _owner = orphan || Owner === null || Owner === UNOWNED ? null : Owner,
-    recycle =
-      node.source1 === null &&
-      ((node.owned === null && node.cleanups === null) || _owner !== null),
-    i: number;
+  const _owner = orphan || Owner === null || Owner === UNOWNED ? null : Owner;
+  const recycle =
+    node.source1 === null &&
+    ((node.owned === null && node.cleanups === null) || _owner !== null);
+  let i: number;
 
   if (recycle) {
     LastNode = node;
@@ -459,10 +459,10 @@ function recycleOrClaimNode<T>(
 }
 
 function logRead(from: Log) {
-  var to = Listener!,
-    fromslot: number,
-    toslot =
-      to.source1 === null ? -1 : to.sources === null ? 0 : to.sources.length;
+  const to = Listener!;
+  let fromslot: number;
+  const toslot =
+    to.source1 === null ? -1 : to.sources === null ? 0 : to.sources.length;
 
   if (from.node1 === null) {
     from.node1 = to;
@@ -502,7 +502,7 @@ function logComputationRead(node: ComputationNode) {
 
 function event() {
   // b/c we might be under a top level S.root(), have to preserve current root
-  var owner = Owner;
+  const owner = Owner;
   RootClock.updates.reset();
   RootClock.time++;
   try {
@@ -514,8 +514,8 @@ function event() {
 }
 
 function run(clock: Clock) {
-  var running = RunningClock,
-    count = 0;
+  const running = RunningClock;
+  let count = 0;
 
   RunningClock = clock;
 
@@ -551,20 +551,20 @@ function applyDataChange(data: DataNode) {
 }
 
 function markComputationsStale(log: Log) {
-  var node1 = log.node1,
-    nodes = log.nodes;
+  const node1 = log.node1;
+  const nodes = log.nodes;
 
   // mark all downstream nodes stale which haven't been already
   if (node1 !== null) markNodeStale(node1);
   if (nodes !== null) {
-    for (var i = 0, len = nodes.length; i < len; i++) {
+    for (let i = 0, len = nodes.length; i < len; i++) {
       markNodeStale(nodes[i]);
     }
   }
 }
 
 function markNodeStale(node: ComputationNode) {
-  var time = RootClock.time;
+  const time = RootClock.time;
   if (node.age < time) {
     node.age = time;
     node.state = STALE;
@@ -575,8 +575,8 @@ function markNodeStale(node: ComputationNode) {
 }
 
 function markOwnedNodesForDisposal(owned: ComputationNode[]) {
-  for (var i = 0; i < owned.length; i++) {
-    var child = owned[i];
+  for (let i = 0; i < owned.length; i++) {
+    const child = owned[i];
     child.age = RootClock.time;
     child.state = CURRENT;
     if (child.owned !== null) markOwnedNodesForDisposal(child.owned);
@@ -585,8 +585,8 @@ function markOwnedNodesForDisposal(owned: ComputationNode[]) {
 
 function updateNode(node: ComputationNode) {
   if (node.state === STALE) {
-    var owner = Owner,
-      listener = Listener;
+    const owner = Owner;
+    const listener = Listener;
 
     Owner = Listener = node;
 
@@ -601,13 +601,13 @@ function updateNode(node: ComputationNode) {
 }
 
 function cleanup(node: ComputationNode, final: boolean) {
-  var source1 = node.source1,
-    sources = node.sources,
-    sourceslots = node.sourceslots,
-    cleanups = node.cleanups,
-    owned = node.owned,
-    i: number,
-    len: number;
+  const source1 = node.source1;
+  const sources = node.sources;
+  const sourceslots = node.sourceslots;
+  const cleanups = node.cleanups;
+  const owned = node.owned;
+  let i: number;
+  let len: number;
 
   if (cleanups !== null) {
     for (i = 0; i < cleanups.length; i++) {
@@ -635,10 +635,10 @@ function cleanup(node: ComputationNode, final: boolean) {
 }
 
 function cleanupSource(source: Log, slot: number) {
-  var nodes = source.nodes!,
-    nodeslots = source.nodeslots!,
-    last: ComputationNode,
-    lastslot: number;
+  const nodes = source.nodes!;
+  const nodeslots = source.nodeslots!;
+  let last: ComputationNode;
+  let lastslot: number;
   if (slot === -1) {
     source.node1 = null;
   } else {
