@@ -12,15 +12,15 @@ type GetterFn<T> = () => T;
 type SetterFn<T> = (nextValue: T) => T;
 
 type ReducerFn<T> = (v: T) => T;
-type QueryFn<T> = () => T;
+type BasicComputationFn<T> = () => T;
 
-// TODO: Express ComputationFn as a union of ReducerFn and QueryFn
-// type ComputationFn<T> = ReducerFn<T> | QueryFn<T>;
+// TODO: Express ComputationFn as a union of ReducerFn and BasicComputationFn
+// type ComputationFn<T> = ReducerFn<T> | BasicComputationFn<T>;
 // Also sometimes represented as (v: T | undefined) => T
 type ComputationFn<T> = (v?: T) => T;
 
 // Computation constructors
-export function createMemo<T>(fn: QueryFn<T>): GetterFn<T>;
+export function createMemo<T>(fn: BasicComputationFn<T>): GetterFn<T>;
 export function createMemo<T>(fn: ReducerFn<T>, seed: T): GetterFn<T>;
 export function createMemo<T>(fn: ComputationFn<T>, value?: T): GetterFn<T> {
   if (Owner === null)
@@ -173,7 +173,7 @@ export function createValueSignal<T>(
 }
 
 // Batching changes
-export function freeze<T>(fn: QueryFn<T>): T {
+export function freeze<T>(fn: BasicComputationFn<T>): T {
   let result: T = undefined!;
 
   if (RunningClock !== null) {
@@ -194,7 +194,7 @@ export function freeze<T>(fn: QueryFn<T>): T {
 }
 
 // Sampling a signal
-export function sample<T>(fn: QueryFn<T>): T {
+export function sample<T>(fn: BasicComputationFn<T>): T {
   let result: T;
   const listener = Listener;
 
