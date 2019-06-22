@@ -1,5 +1,15 @@
-export interface DataSignal<T> {
+export interface ReadableDataSignal<T> {
+  // The Getter Signature
+  (): T;
+}
+
+export interface MutableDataSignal<T> {
   // The Setter Signature
+  (nextValue: T): T;
+}
+
+export interface DataSignal<T> {
+  // The Getter Signature
   (): T;
 
   // The Setter Signature
@@ -7,9 +17,6 @@ export interface DataSignal<T> {
 }
 
 // Public interface
-
-type GetterFn<T> = () => T;
-type SetterFn<T> = (nextValue: T) => T;
 
 type ReducerFn<T> = (v: T) => T;
 type BasicComputationFn<T> = () => T;
@@ -20,9 +27,12 @@ type BasicComputationFn<T> = () => T;
 type ComputationFn<T> = (v?: T) => T;
 
 // Computation constructors
-export function createMemo<T>(fn: BasicComputationFn<T>): GetterFn<T>;
-export function createMemo<T>(fn: ReducerFn<T>, seed: T): GetterFn<T>;
-export function createMemo<T>(fn: ComputationFn<T>, value?: T): GetterFn<T> {
+export function createMemo<T>(fn: BasicComputationFn<T>): ReadableDataSignal<T>;
+export function createMemo<T>(fn: ReducerFn<T>, seed: T): ReadableDataSignal<T>;
+export function createMemo<T>(
+  fn: ComputationFn<T>,
+  value?: T
+): ReadableDataSignal<T> {
   if (Owner === null)
     console.warn(
       "computations created without a root or parent will never be disposed"
@@ -45,6 +55,7 @@ type DisposalFn<T> = (dispose: () => void) => T;
 
 // Computation root
 // TODO: Resolve optionality of dispose in type definition
+// TODO: Understand the dispose case -- figure out if this is a RootComputation type
 // root<T>(fn: (dispose?: () => void) => T): T;
 export function createRoot<T>(fn: DisposalFn<T>): T {
   const owner = Owner;
@@ -81,37 +92,42 @@ export function createRoot<T>(fn: DisposalFn<T>): T {
   return result;
 }
 
+type DataSignalList<T> = ReadableDataSignal<T>[] | ReadableDataSignal<T>[];
+
+function composeDependencies(ss: ReadableDataSignal<any>[]) {
+  return function readAll() {
+    for (let i = 0; i < ss.length; i++) ss[i]();
+  };
+}
+
 // TODO: overload definitions
 //   on<T>(ev: () => any, fn: () => T): () => T;
 //   on<T>(ev: () => any, fn: (v: T) => T, seed: T, onchanges?: boolean): () => T;
 export function createDependentEffect<T>(
-  ev: () => any,
+  dependsOn: DataSignalList<any>,
   fn: (v?: T) => T,
   seed?: T,
-  onchanges?: boolean
+  defer?: boolean
 ) {
-  if (Array.isArray(ev)) ev = callAll(ev);
-  onchanges = !!onchanges;
+  let forceDependencies = Array.isArray(dependsOn)
+    ? composeDependencies(dependsOn)
+    : dependsOn;
+  let waiting = !!defer;
 
   return createMemo(on, seed);
 
   function on(value?: T) {
     const listener = Listener;
-    ev();
-    if (onchanges) onchanges = false;
-    else {
+    forceDependencies();
+    if (waiting) {
+      waiting = false;
+    } else {
       Listener = null;
       value = fn(value);
       Listener = listener;
     }
     return value;
   }
-}
-
-function callAll(ss: (() => any)[]) {
-  return function all() {
-    for (let i = 0; i < ss.length; i++) ss[i]();
-  };
 }
 
 // TODO: Overload definitions.  Is this a ComputationFn?
