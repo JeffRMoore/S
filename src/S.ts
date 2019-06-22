@@ -579,7 +579,7 @@ function updateNode(node: ComputationNode) {
     Owner = Listener = node;
 
     node.state = RUNNING;
-    cleanup(node, false);
+    cleanupComputationNode(node, false);
     node.value = node.fn!(node.value);
     node.state = CURRENT;
 
@@ -588,7 +588,7 @@ function updateNode(node: ComputationNode) {
   }
 }
 
-function cleanup(node: ComputationNode, final: boolean) {
+function cleanupComputationNode(node: ComputationNode, final: boolean) {
   const source1 = node.source1;
   const sources = node.sources;
   const sourceslots = node.sourceslots;
@@ -647,5 +647,5 @@ function cleanupSource(source: Log, slot: number) {
 function dispose(node: ComputationNode) {
   node.fn = null;
   node.log = null;
-  cleanup(node, true);
+  cleanupComputationNode(node, true);
 }
