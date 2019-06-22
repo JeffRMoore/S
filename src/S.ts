@@ -3,13 +3,13 @@ export interface DataSignal<T> {
   (): T;
 
   // The Setter Signature
-  (val: T): T;
+  (nextValue: T): T;
 }
 
 // Public interface
 
 type GetterFn<T> = () => T;
-type SetterFn<T> = (value: T) => T;
+type SetterFn<T> = (nextValue: T) => T;
 
 type ReducerFn<T> = (v: T) => T;
 type QueryFn<T> = () => T;
@@ -31,11 +31,11 @@ export function createMemo<T>(fn: ComputationFn<T>, value?: T): GetterFn<T> {
   const { node, value: _value } = makeComputationNode(fn, value, false, false);
 
   if (node === null) {
-    return function computation() {
+    return function resultGetter() {
       return _value;
     };
   } else {
-    return function computation() {
+    return function resultGetter() {
       return node!.current();
     };
   }
@@ -125,14 +125,14 @@ export function createEffect<T>(fn: (v: T | undefined) => T, value?: T): void {
 }
 
 // Data signal constructors
-export function createSignal<T>(value: T): DataSignal<T> {
-  const node = new DataNode(value);
+export function createSignal<T>(initialValue: T): DataSignal<T> {
+  const node = new DataNode(initialValue);
 
-  return function data(value?: T): T {
+  return function dataSignal(nextValue?: T): T {
     if (arguments.length === 0) {
       return node.current();
     } else {
-      return node.next(value);
+      return node.next(nextValue);
     }
   };
 }
@@ -140,27 +140,34 @@ export function createSignal<T>(value: T): DataSignal<T> {
 // Data signal constructors
 // value<T>(value: T, eq?: (a: T, b: T) => boolean): DataSignal<T>;
 export function createValueSignal<T>(
-  current: T,
+  initialValue: T,
   eq?: (a: T, b: T) => boolean
 ): DataSignal<T> {
-  const node = new DataNode(current);
+  const node = new DataNode(initialValue);
   let age = -1;
-  return function value(update?: T) {
+  let currentValue = initialValue;
+
+  return function valueSignal(nextValue?: T) {
     if (arguments.length === 0) {
       return node.current();
     } else {
-      const same = eq ? eq(current, update!) : current === update;
+      const same = eq
+        ? eq(currentValue, nextValue!)
+        : currentValue === nextValue;
       if (!same) {
         const time = RootClock.time;
         if (age === time)
           throw new Error(
-            "conflicting values: " + update + " is not the same as " + current
+            "conflicting values: " +
+              nextValue +
+              " is not the same as " +
+              currentValue
           );
         age = time;
-        current = update!;
-        node.next(update!);
+        currentValue = nextValue!;
+        node.next(nextValue!);
       }
-      return update!;
+      return nextValue!;
     }
   };
 }
