@@ -92,7 +92,7 @@ export function createRoot<T>(fn: DisposalFn<T>): T {
   return result;
 }
 
-type DataSignalList<T> = ReadableDataSignal<T>[] | ReadableDataSignal<T>[];
+type DataSignalSpec<T> = ReadableDataSignal<T>[] | ReadableDataSignal<T>[];
 
 function composeDependencies(ss: ReadableDataSignal<any>[]) {
   return function readAll() {
@@ -101,11 +101,17 @@ function composeDependencies(ss: ReadableDataSignal<any>[]) {
 }
 
 // TODO: overload definitions
+// TODO: Ruturn type not specified (ANY)
+// TODO: Remove boolean parameter: seed is unnecessary when a basicComputation is used with a defer parameter
 //   on<T>(ev: () => any, fn: () => T): () => T;
 //   on<T>(ev: () => any, fn: (v: T) => T, seed: T, onchanges?: boolean): () => T;
+/*
+export function createMemo<T>(fn: BasicComputationFn<T>): ReadableDataSignal<T>;
+export function createMemo<T>(fn: ReducerFn<T>, seed: T): ReadableDataSignal<T>;
+*/
 export function createDependentEffect<T>(
-  dependsOn: DataSignalList<any>,
-  fn: (v?: T) => T,
+  dependsOn: DataSignalSpec<any>,
+  fn: ComputationFn<T>,
   seed?: T,
   defer?: boolean
 ) {
@@ -116,6 +122,7 @@ export function createDependentEffect<T>(
 
   return createMemo(on, seed);
 
+  // TODO: Ruturn type no specified (ANY)
   function on(value?: T) {
     const listener = Listener;
     forceDependencies();
@@ -130,13 +137,12 @@ export function createDependentEffect<T>(
   }
 }
 
-// TODO: Overload definitions.  Is this a ComputationFn?
 // Not documented
 // No tests
 // Used only in the benchmarks
-//   effect<T>(fn: () => T): void;
-//   effect<T>(fn: (v: T) => T, seed: T): void;
-export function createEffect<T>(fn: (v: T | undefined) => T, value?: T): void {
+export function createEffect<T>(fn: BasicComputationFn<T>): void;
+export function createEffect<T>(fn: ReducerFn<T>, seed: T): void;
+export function createEffect<T>(fn: ComputationFn<T>, value?: T): void {
   makeComputationNode(fn, value, false, false);
 }
 
