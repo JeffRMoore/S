@@ -384,11 +384,11 @@ const RUNNING = 2;
 const UNOWNED = new ComputationNode();
 
 // "Globals" used to keep track of current system state
-var RootClock = new Clock();
-var RunningClock = null as Clock | null; // currently running clock
-var Listener = null as ComputationNode | null; // currently listening computation
-var Owner = null as ComputationNode | null; // owner for new computations
-var LastNode = null as ComputationNode | null; // cached unused node, for re-use
+let RootClock = new Clock();
+let RunningClock = null as Clock | null; // currently running clock
+let Listener = null as ComputationNode | null; // currently listening computation
+let Owner = null as ComputationNode | null; // owner for new computations
+let LastNode = null as ComputationNode | null; // cached unused node, for re-use
 
 // Functions
 const makeComputationNodeResult = {
@@ -639,6 +639,7 @@ function markOwnedNodesForDisposal(owned: ComputationNode[]) {
   }
 }
 
+// Only called from ComputationNode.current
 function updateNode(node: ComputationNode) {
   if (node.state === STALE) {
     const owner = Owner;
