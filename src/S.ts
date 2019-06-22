@@ -30,6 +30,10 @@ export interface DataSignal<T> {
 }
 
 // Public interface
+
+// Computation constructors
+// <T>(fn: () => T): () => T;
+// <T>(fn: (v: T) => T, seed: T): () => T;
 const S = <S>function S<T>(fn: (v: T | undefined) => T, value?: T): () => T {
   if (Owner === null)
     console.warn(
@@ -54,6 +58,8 @@ Object.defineProperty(S, "default", { value: S });
 
 export default S;
 
+// Computation root
+// root<T>(fn: (dispose?: () => void) => T): T;
 S.root = function root<T>(fn: (dispose: () => void) => T): T {
   const owner = Owner;
   const disposer =
@@ -89,6 +95,8 @@ S.root = function root<T>(fn: (dispose: () => void) => T): T {
   return result;
 };
 
+//   on<T>(ev: () => any, fn: () => T): () => T;
+//   on<T>(ev: () => any, fn: (v: T) => T, seed: T, onchanges?: boolean): () => T;
 S.on = function on<T>(
   ev: () => any,
   fn: (v?: T) => T,
@@ -119,10 +127,17 @@ function callAll(ss: (() => any)[]) {
   };
 }
 
+// Not documented
+// No tests
+// Used only in the benchmarks
+//   effect<T>(fn: () => T): void;
+//   effect<T>(fn: (v: T) => T, seed: T): void;
 S.effect = function effect<T>(fn: (v: T | undefined) => T, value?: T): void {
   makeComputationNode(fn, value, false, false);
 };
 
+// Data signal constructors
+// data<T>(value: T): DataSignal<T>;
 S.data = function data<T>(value: T): (value?: T) => T {
   const node = new DataNode(value);
 
@@ -135,6 +150,8 @@ S.data = function data<T>(value: T): (value?: T) => T {
   };
 };
 
+// Data signal constructors
+// value<T>(value: T, eq?: (a: T, b: T) => boolean): DataSignal<T>;
 S.value = function value<T>(
   current: T,
   eq?: (a: T, b: T) => boolean
@@ -161,6 +178,8 @@ S.value = function value<T>(
   };
 };
 
+// Batching changes
+// freeze<T>(fn: () => T): T;
 S.freeze = function freeze<T>(fn: () => T): T {
   let result: T = undefined!;
 
@@ -181,6 +200,8 @@ S.freeze = function freeze<T>(fn: () => T): T {
   return result;
 };
 
+// Sampling a signal
+// sample<T>(fn: () => T): T;
 S.sample = function sample<T>(fn: () => T): T {
   let result: T;
   const listener = Listener;
@@ -192,6 +213,10 @@ S.sample = function sample<T>(fn: () => T): T {
   return result;
 };
 
+// Freeing external resources
+// cleanup(fn: (final: boolean) => any): void;
+// No tests
+// Not part of benchmark
 S.cleanup = function cleanup(fn: (final: boolean) => void): void {
   if (Owner === null)
     console.warn("cleanups created without a root or parent will never be run");
