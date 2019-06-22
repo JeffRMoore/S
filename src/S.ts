@@ -262,9 +262,24 @@ class Clock {
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
 }
 
+/**
+ * Represents a buffered data value which logReads and log
+ */
 class DataNode {
-  pending = NOTPENDING as any;
+  // value: any;
+
+  /**
+   * logDatRead will create the log if necessary
+   * dispose will remove it when it is no longer needed
+   */
   log = null as Log | null;
+
+  /**
+   * The value which is pending for next clock cycle
+   * applyDataChange will change this to NOTHING_PENDING, a unique sentinel
+   * Otherwise, the value is set in the mutator method.
+   */
+  pending = NOTHING_PENDING as any;
 
   constructor(public value: any) {}
 
@@ -276,8 +291,9 @@ class DataNode {
   }
 
   next(value: any) {
+    // TODO: Guard clauses?
     if (RunningClock !== null) {
-      if (this.pending !== NOTPENDING) {
+      if (this.pending !== NOTHING_PENDING) {
         // value has already been set once, check for conflicts
         if (value !== this.pending) {
           throw new Error(
@@ -290,29 +306,29 @@ class DataNode {
         RootClock.changes.add(this);
       }
     } else {
-      // not batching, respond to change now
       if (this.log !== null) {
         this.pending = value;
         RootClock.changes.add(this);
         event();
       } else {
+        // not batching, respond to change now
         this.value = value;
       }
     }
-    return value!;
+    return value!; // TODO: This declaration seems type-shady is this really true or necessary?
   }
 }
 
 class ComputationNode {
-  fn = null as ComputationFn<any> | null;
   value = undefined as any;
+  log = null as Log | null;
+  fn = null as ComputationFn<any> | null;
   age = -1;
   state = CURRENT;
   source1 = null as null | Log;
   source1slot = 0;
   sources = null as null | Log[];
   sourceslots = null as null | number[];
-  log = null as Log | null;
   owned = null as ComputationNode[] | null;
   cleanups = null as cleanUpFn[] | null;
 
@@ -361,7 +377,7 @@ class Queue<T> {
 }
 
 // Constants
-const NOTPENDING = {};
+const NOTHING_PENDING = {};
 const CURRENT = 0;
 const STALE = 1;
 const RUNNING = 2;
@@ -586,7 +602,7 @@ function run(clock: Clock) {
 
 function applyDataChange(data: DataNode) {
   data.value = data.pending;
-  data.pending = NOTPENDING;
+  data.pending = NOTHING_PENDING;
   if (data.log) markComputationsStale(data.log);
 }
 
