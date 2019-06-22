@@ -41,9 +41,12 @@ export function createMemo<T>(fn: ComputationFn<T>, value?: T): GetterFn<T> {
   }
 }
 
+type DisposalFn<T> = (dispose: () => void) => T;
+
 // Computation root
+// TODO: Resolve optionality of dispose in type definition
 // root<T>(fn: (dispose?: () => void) => T): T;
-export function createRoot<T>(fn: (dispose: () => void) => T): T {
+export function createRoot<T>(fn: DisposalFn<T>): T {
   const owner = Owner;
   const disposer =
     fn.length === 0
@@ -261,7 +264,7 @@ class DataNode {
 }
 
 class ComputationNode {
-  fn = null as ((v: any) => any) | null;
+  fn = null as ComputationFn<any> | null;
   value = undefined as any;
   age = -1;
   state = CURRENT;
