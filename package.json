@@ -15,7 +15,7 @@
     "typescript": "^3.5.2"
   },
   "scripts": {
-    "build": "tsc && rollup dist/es/S.js -f \"umd\" -n \"S\" -o dist/S.js && rollup dist/es/withsubclocks.js -f \"umd\" -n \"S\" -o dist/withsubclocks.js",
+    "build": "tsc && rollup dist/es/S.js -f \"umd\" -n \"S\" -o dist/S.js",
     "test": "jasmine",
     "bench": "node --allow-natives-syntax bench/bench.js"
   },
