@@ -16,6 +16,7 @@ type QueryFn<T> = () => T;
 
 // TODO: Express ComputationFn as a union of ReducerFn and QueryFn
 // type ComputationFn<T> = ReducerFn<T> | QueryFn<T>;
+// Also sometimes represented as (v: T | undefined) => T
 type ComputationFn<T> = (v?: T) => T;
 
 // Computation constructors
@@ -110,7 +111,7 @@ function callAll(ss: (() => any)[]) {
   };
 }
 
-// TODO: Overload definitions
+// TODO: Overload definitions.  Is this a ComputationFn?
 // Not documented
 // No tests
 // Used only in the benchmarks
@@ -194,11 +195,13 @@ export function sample<T>(fn: QueryFn<T>): T {
   return result;
 }
 
+type cleanUpFn = (final: boolean) => void;
+
 // Freeing external resources
 // cleanup(fn: (final: boolean) => any): void;
 // No tests
 // Not part of benchmark
-export function onCleanup(fn: (final: boolean) => void): void {
+export function onCleanup(fn: cleanUpFn): void {
   if (Owner === null)
     console.warn("cleanups created without a root or parent will never be run");
   else if (Owner.cleanups === null) Owner.cleanups = [fn];
@@ -268,7 +271,7 @@ class ComputationNode {
   sourceslots = null as null | number[];
   log = null as Log | null;
   owned = null as ComputationNode[] | null;
-  cleanups = null as (((final: boolean) => void)[]) | null;
+  cleanups = null as cleanUpFn[] | null;
 
   constructor() {}
 
@@ -334,7 +337,7 @@ const makeComputationNodeResult = {
   value: undefined as any
 };
 function makeComputationNode<T>(
-  fn: (v: T | undefined) => T,
+  fn: ComputationFn<T>,
   value: T | undefined,
   orphan: boolean,
   sample: boolean
@@ -367,7 +370,7 @@ function makeComputationNode<T>(
 }
 
 function execToplevelComputation<T>(
-  fn: (v: T | undefined) => T,
+  fn: ComputationFn<T>,
   value: T | undefined
 ) {
   RunningClock = RootClock;
@@ -406,7 +409,7 @@ function getCandidateNode() {
 
 function recycleOrClaimNode<T>(
   node: ComputationNode,
-  fn: (v: T | undefined) => T,
+  fn: ComputationFn<T>,
   value: T,
   orphan: boolean
 ) {
