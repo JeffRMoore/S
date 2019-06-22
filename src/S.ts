@@ -26,20 +26,6 @@ export interface S {
   // experimental - methods for creating new kinds of bindings
   isFrozen(): boolean;
   isListening(): boolean;
-  makeDataNode<T>(value: T): IDataNode<T>;
-  makeComputationNode<T, S>(
-    fn: (val: S) => T,
-    seed: S,
-    orphan: boolean,
-    sample: true
-  ): { node: INode<T> | null; value: T };
-  makeComputationNode<T, S>(
-    fn: (val: T | S) => T,
-    seed: S,
-    orphan: boolean,
-    sample: boolean
-  ): { node: INode<T> | null; value: T };
-  disposeNode(node: INode<any>): void;
 }
 
 export interface DataSignal<T> {
@@ -217,35 +203,6 @@ S.cleanup = function cleanup(fn: (final: boolean) => void): void {
   else Owner.cleanups.push(fn);
 };
 
-// experimental : exposing node constructors and some state
-S.makeDataNode = function makeDataNode(value) {
-  return new DataNode(value);
-};
-
-export interface IClock {
-  time(): number;
-}
-
-interface INode<T> {
-  clock(): IClock;
-  current(): T;
-}
-
-interface IDataNode<T> extends INode<T> {
-  next(value: T): T;
-}
-
-export { INode as Node, IDataNode as DataNode, IClock as Clock };
-
-S.makeComputationNode = makeComputationNode;
-S.disposeNode = function disposeNode(node: ComputationNode) {
-  if (RunningClock !== null) {
-    RootClock.disposes.add(node);
-  } else {
-    dispose(node);
-  }
-};
-
 S.isFrozen = function isFrozen() {
   return RunningClock !== null;
 };
@@ -264,12 +221,6 @@ class Clock {
   updates = new Queue<ComputationNode>(); // computations to update
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
 }
-
-var RootClockProxy = {
-  time: function() {
-    return RootClock.time;
-  }
-};
 
 class DataNode {
   pending = NOTPENDING as any;
@@ -310,10 +261,6 @@ class DataNode {
     }
     return value!;
   }
-
-  clock() {
-    return RootClockProxy;
-  }
 }
 
 class ComputationNode {
@@ -341,10 +288,6 @@ class ComputationNode {
     }
 
     return this.value;
-  }
-
-  clock() {
-    return RootClockProxy;
   }
 }
 
