@@ -5,12 +5,16 @@
   "main": "dist/S.js",
   "module": "dist/es/S.js",
   "types": "dist/es/S.d.ts",
-  "dependencies": {},
+  "dependencies": {
+    "prettier": "^1.18.2"
+  },
   "devDependencies": {
+    "husky": "^2.4.1",
     "jasmine": "^3.4.0",
     "karma": "^4.1.0",
     "karma-chrome-launcher": "^2.2.0",
     "karma-jasmine": "^2.0.1",
+    "pretty-quick": "^1.11.1",
     "rollup": "^1.16.2",
     "typescript": "^3.5.2"
   },
@@ -18,6 +22,11 @@
     "build": "tsc && rollup dist/es/S.js -f \"umd\" -n \"S\" -o dist/S.js",
     "test": "jasmine",
     "bench": "node --allow-natives-syntax bench/bench.js"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
   },
   "keywords": [
     "reactive",
