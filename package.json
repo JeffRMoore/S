@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "tsc && rollup dist/es/S.js -f \"umd\" -n \"S\" -o dist/S.js",
-    "test": "jasmine",
+    "test": "npm run build && jasmine",
     "bench": "node --allow-natives-syntax bench/bench.js"
   },
   "husky": {
