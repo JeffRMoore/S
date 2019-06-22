@@ -22,10 +22,6 @@ export interface S {
 
   // Freeing external resources
   cleanup(fn: (final: boolean) => any): void;
-
-  // experimental - methods for creating new kinds of bindings
-  isFrozen(): boolean;
-  isListening(): boolean;
 }
 
 export interface DataSignal<T> {
@@ -201,14 +197,6 @@ S.cleanup = function cleanup(fn: (final: boolean) => void): void {
     console.warn("cleanups created without a root or parent will never be run");
   else if (Owner.cleanups === null) Owner.cleanups = [fn];
   else Owner.cleanups.push(fn);
-};
-
-S.isFrozen = function isFrozen() {
-  return RunningClock !== null;
-};
-
-S.isListening = function isListening() {
-  return Listener !== null;
 };
 
 // Internal implementation
