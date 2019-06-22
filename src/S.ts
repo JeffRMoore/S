@@ -103,11 +103,22 @@ function composeDependencies(ss: ReadableDataSignal<any>[]) {
 // TODO: overload definitions
 // TODO: Ruturn type not specified (ANY)
 // TODO: Remove boolean parameter: seed is unnecessary when a basicComputation is used with a defer parameter
+// TODO: Just WHAT IS this expected to return???
 //   on<T>(ev: () => any, fn: () => T): () => T;
 //   on<T>(ev: () => any, fn: (v: T) => T, seed: T, onchanges?: boolean): () => T;
 /*
-export function createMemo<T>(fn: BasicComputationFn<T>): ReadableDataSignal<T>;
-export function createMemo<T>(fn: ReducerFn<T>, seed: T): ReadableDataSignal<T>;
+export function createDependentEffect<T>(
+    dependsOn: DataSignalSpec<any>,
+    fn: BasicComputationFn<T>,
+    seed?: T,
+    defer?: boolean
+): ReadableDataSignal<T>;
+export function createDependentEffect<T>(
+    dependsOn: DataSignalSpec<any>,
+    fn: ReducerFn<T>,
+    seed: T,
+    defer?: boolean
+): ReadableDataSignal<T> ;
 */
 export function createDependentEffect<T>(
   dependsOn: DataSignalSpec<any>,
