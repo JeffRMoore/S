@@ -287,7 +287,7 @@ class Clock {
 
       try {
         result = fn();
-        event();
+        RootClock.event();
       } finally {
         RunningClock = null;
       }
@@ -321,6 +321,19 @@ class Clock {
         Owner = owner;
         Listener = listener;
       }
+    }
+  }
+
+  event() {
+    // b/c we might be under a top level createRoot(), have to preserve current root
+    const owner = Owner;
+    this.updates.reset();
+    this.time++;
+    try {
+      this.run();
+    } finally {
+      RunningClock = Listener = null;
+      Owner = owner;
     }
   }
 }
@@ -375,7 +388,7 @@ class DataNode {
       if (this.log !== null) {
         this.pending = value;
         RootClock.changes.add(this);
-        event();
+        RootClock.event();
       } else {
         // not batching, respond to change now
         this.value = value;
@@ -706,19 +719,6 @@ function recycleOrClaimNode<T>(
   }
 
   return recycle;
-}
-
-function event() {
-  // b/c we might be under a top level createRoot(), have to preserve current root
-  const owner = Owner;
-  RootClock.updates.reset();
-  RootClock.time++;
-  try {
-    RootClock.run();
-  } finally {
-    RunningClock = Listener = null;
-    Owner = owner;
-  }
 }
 
 function applyDataChange(data: DataNode) {
