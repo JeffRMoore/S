@@ -89,18 +89,23 @@ export function createDependentEffect<T>(
     : dependsOn;
   let waiting = !!defer;
 
+  // TODO: investigate copying createMemo and inlining it here to allow refactoring
   return createMemo(on, seed);
 
   // TODO: Ruturn type no specified (ANY)
   function on(value?: T) {
-    const listener = Listener;
+    // TODO: I'm not convinced this is capturing the listener at the right point.
+    // TODO: Should we capture inside the closure?  is createMemo going to do
+    // TODO: Something weird with the listener?
+    const prevListener = Listener;
+
     forceDependencies();
     if (waiting) {
       waiting = false;
     } else {
-      Listener = null;
+      Listener = null; // TODO: Maybe we should stop listening before forcing dependencies?
       value = fn(value);
-      Listener = listener;
+      Listener = prevListener;
     }
     return value;
   }
@@ -173,13 +178,12 @@ export function sample<T>(fn: BasicComputationFn<T>): T {
   let result: T;
 
   // stop listening
-  const listener = Listener;
+  const prevListener = Listener;
   Listener = null;
 
   result = fn();
 
-  // restoreListening
-  Listener = listener;
+  Listener = prevListener;
 
   return result;
 }
@@ -326,7 +330,12 @@ class Clock {
     try {
       return fn(value);
     } finally {
-      Owner = Listener = null;
+      Owner = null;
+      // TODO: Seems unbalanced not to restore the previous listener
+      // TODO: or are we presuming the previous listener is null?
+      // TODO: Turns out our caller always managers listeners and restores
+      // TODO: The listener after this.  So this code can be removed.
+      Listener = null;
       this.isRunning = false;
     }
   }
@@ -347,12 +356,13 @@ class Clock {
 
   // called from createEffect
   createEffect<T>(fn: ComputationFn<T>, value: T | undefined): void {
-    const node = getCandidateNode();
-    const owner = Owner;
-    const listener = Listener;
+    const effectComputation = getCandidateNode();
 
-    Owner = node;
-    Listener = node;
+    const prevListener = Listener;
+    Listener = effectComputation;
+
+    const owner = Owner;
+    Owner = effectComputation;
 
     if (!this.isRunning) {
       value = this.execToplevelComputation(fn, value);
@@ -361,9 +371,9 @@ class Clock {
     }
 
     Owner = owner;
-    Listener = listener;
+    Listener = prevListener;
 
-    node.recycleOrClaimNode(fn, value);
+    effectComputation.recycleOrClaimNode(fn, value);
 
     if (!this.isRunning) this.finishToplevelComputation();
   }
@@ -373,17 +383,17 @@ class Clock {
     fn: ComputationFn<T>,
     value: T | undefined
   ): ReadableDataSignal<T> {
-    const node = getCandidateNode();
-    const owner = Owner;
-    const listener = Listener;
+    const memoComputation = getCandidateNode();
 
+    const prevListener = Listener;
+    Listener = memoComputation;
+
+    const owner = Owner;
     if (Owner === null)
       console.warn(
         "computations created without a root or parent will never be disposed"
       );
-
-    Owner = node;
-    Listener = node;
+    Owner = memoComputation;
 
     if (!this.isRunning) {
       value = RootClock.execToplevelComputation(fn, value);
@@ -392,13 +402,13 @@ class Clock {
     }
 
     Owner = owner;
-    Listener = listener;
+    Listener = prevListener;
 
-    const recycled = node.recycleOrClaimNode(fn, value);
+    const recycled = memoComputation.recycleOrClaimNode(fn, value);
 
     if (!this.isRunning) RootClock.finishToplevelComputation();
 
-    let _node = recycled ? null : node;
+    let _node = recycled ? null : memoComputation;
     let _value = value!;
 
     if (_node === null) {
@@ -563,9 +573,10 @@ class ComputationNode {
   updateNode() {
     if (this.state === STALE) {
       const owner = Owner;
-      const listener = Listener;
+      const prevListener = Listener;
+      Listener = this;
 
-      Owner = Listener = this;
+      Owner = this;
 
       this.state = RUNNING;
       this.cleanupComputationNode(false);
@@ -573,7 +584,7 @@ class ComputationNode {
       this.state = CURRENT;
 
       Owner = owner;
-      Listener = listener;
+      Listener = prevListener;
     }
   }
 
@@ -775,11 +786,15 @@ const UNOWNED = new ComputationNode();
 
 // "Globals" used to keep track of current system state
 let RootClock = new Clock();
-let Listener = null as ComputationNode | null; // currently listening computation
 let Owner = null as ComputationNode | null; // owner for new computations
 let LastNode = null as ComputationNode | null; // cached unused node, for re-use
 
-// Functions
+/**
+ * Record the currently listening computation as a global or null if there is no
+ * current listener
+ */
+type ListenerSpec = ComputationNode | null;
+let Listener = null as ListenerSpec;
 
 // Use a previously recycled Node or create a new one
 // called from makeComputationNode
