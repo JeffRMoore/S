@@ -324,6 +324,7 @@ class DataNode {
   applyPendingChange() {
     this.value = this.pending;
     this.pending = NOTHING_PENDING;
+    if (this.log) this.log.markComputationsStale();
   }
 }
 
@@ -642,7 +643,6 @@ function run(clock: Clock) {
 
 function applyDataChange(data: DataNode) {
   data.applyPendingChange();
-  if (data.log) data.log.markComputationsStale();
 }
 
 function markNodeStale(node: ComputationNode) {
