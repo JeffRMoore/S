@@ -33,22 +33,7 @@ export function createMemo<T>(
   fn: ComputationFn<T>,
   value?: T
 ): ReadableDataSignal<T> {
-  if (Owner === null)
-    console.warn(
-      "computations created without a root or parent will never be disposed"
-    );
-
-  const { node, value: _value } = makeComputationNode(fn, value, false, false);
-
-  if (node === null) {
-    return function resultGetter() {
-      return _value;
-    };
-  } else {
-    return function resultGetter() {
-      return node!.current();
-    };
-  }
+  return RootClock.createMemo(fn, value, false, false);
 }
 
 type DisposalFn<T> = (dispose: () => void) => T;
@@ -128,7 +113,7 @@ export function createDependentEffect<T>(
 export function createEffect<T>(fn: BasicComputationFn<T>): void;
 export function createEffect<T>(fn: ReducerFn<T>, seed: T): void;
 export function createEffect<T>(fn: ComputationFn<T>, value?: T): void {
-  makeComputationNode(fn, value, false, false);
+  RootClock.createEffect(fn, value);
 }
 
 // Data signal constructors
@@ -338,6 +323,74 @@ class Clock {
         Owner = owner;
         Listener = listener;
       }
+    }
+  }
+
+  createEffect<T>(fn: ComputationFn<T>, value: T | undefined): void {
+    const node = getCandidateNode();
+    const owner = Owner;
+    const listener = Listener;
+
+    Owner = node;
+    Listener = node;
+
+    if (RunningClock === null) {
+      value = this.execToplevelComputation(fn, value);
+    } else {
+      value = fn(value);
+    }
+
+    Owner = owner;
+    Listener = listener;
+
+    const recycled = recycleOrClaimNode(node, fn, value, false);
+
+    if (RunningClock === null) this.finishToplevelComputation(owner, listener);
+  }
+
+  createMemo<T>(
+    fn: ComputationFn<T>,
+    value: T | undefined,
+    orphan: boolean,
+    sample: boolean
+  ): ReadableDataSignal<T> {
+    const node = getCandidateNode();
+    const owner = Owner;
+    const listener = Listener;
+    const toplevel = RunningClock === null;
+
+    if (Owner === null)
+      console.warn(
+        "computations created without a root or parent will never be disposed"
+      );
+
+    Owner = node;
+    Listener = sample ? null : node;
+
+    if (toplevel) {
+      value = RootClock.execToplevelComputation(fn, value);
+    } else {
+      value = fn(value);
+    }
+
+    Owner = owner;
+    Listener = listener;
+
+    const recycled = recycleOrClaimNode(node, fn, value, orphan);
+
+    if (toplevel) RootClock.finishToplevelComputation(owner, listener);
+
+    let _node = recycled ? null : node;
+    let _value = value!;
+
+    if (_node === null) {
+      return function resultGetter() {
+        return _value;
+      };
+    } else {
+      return function resultGetter() {
+        return _node!.current();
+      };
     }
   }
 
@@ -646,48 +699,6 @@ let Owner = null as ComputationNode | null; // owner for new computations
 let LastNode = null as ComputationNode | null; // cached unused node, for re-use
 
 // Functions
-
-// TODO: optimization for returning values from makeComputationNode.  Schedule for removal
-const makeComputationNodeResult = {
-  node: null as null | ComputationNode,
-  value: undefined as any
-};
-
-// TODO: Try to move the run functionality into Clock for refactoring
-// called from createMemo
-// called from createEffect
-function makeComputationNode<T>(
-  fn: ComputationFn<T>,
-  value: T | undefined,
-  orphan: boolean,
-  sample: boolean
-): { node: ComputationNode | null; value: T } {
-  const node = getCandidateNode();
-  const owner = Owner;
-  const listener = Listener;
-  const toplevel = RunningClock === null;
-
-  Owner = node;
-  Listener = sample ? null : node;
-
-  if (toplevel) {
-    value = RootClock.execToplevelComputation(fn, value);
-  } else {
-    value = fn(value);
-  }
-
-  Owner = owner;
-  Listener = listener;
-
-  const recycled = recycleOrClaimNode(node, fn, value, orphan);
-
-  if (toplevel) RootClock.finishToplevelComputation(owner, listener);
-
-  makeComputationNodeResult.node = recycled ? null : node;
-  makeComputationNodeResult.value = value!;
-
-  return makeComputationNodeResult;
-}
 
 // Use a previously recycled Node or create a new one
 // called from makeComputationNode
