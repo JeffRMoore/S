@@ -195,10 +195,13 @@ type cleanUpFn = (final: boolean) => void;
 // No tests
 // Not part of benchmark
 export function onCleanup(fn: cleanUpFn): void {
-  if (Owner === null)
+  if (Owner === null) {
     console.warn("cleanups created without a root or parent will never be run");
-  else if (Owner.cleanups === null) Owner.cleanups = [fn];
-  else Owner.cleanups.push(fn);
+  } else if (Owner.cleanups === null) {
+    Owner.cleanups = [fn];
+  } else {
+    Owner.cleanups.push(fn);
+  }
 }
 
 // Internal implementation
@@ -431,6 +434,7 @@ class Clock {
 
   // called from runFrozen
   // called from DataNode.next
+  // TODO: Look for symmetries here
   event() {
     // b/c we might be under a top level createRoot(), have to preserve current root
     const prevOwner = Owner;
