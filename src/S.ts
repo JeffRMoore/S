@@ -328,6 +328,15 @@ class DataNode {
   }
 }
 
+function markOwnedNodesForDisposal(owned: ComputationNode[]) {
+  for (let i = 0; i < owned.length; i++) {
+    const child = owned[i];
+    child.age = RootClock.time;
+    child.state = CURRENT;
+    if (child.owned !== null) markOwnedNodesForDisposal(child.owned);
+  }
+}
+
 class ComputationNode {
   value = undefined as any;
   log = null as Log | null;
@@ -391,12 +400,54 @@ class ComputationNode {
       Owner = Listener = this;
 
       this.state = RUNNING;
-      cleanupComputationNode(this, false);
+      this.cleanupComputationNode(false);
       this.value = this.fn!(this.value);
       this.state = CURRENT;
 
       Owner = owner;
       Listener = listener;
+    }
+  }
+
+  dispose() {
+    this.fn = null;
+    this.log = null;
+    this.cleanupComputationNode(true);
+  }
+
+  cleanupComputationNode(final: boolean) {
+    const source1 = this.source1;
+    const sources = this.sources;
+    const sourceslots = this.sourceslots;
+    const cleanups = this.cleanups;
+    const owned = this.owned;
+    let i: number;
+    let len: number;
+
+    if (cleanups !== null) {
+      for (i = 0; i < cleanups.length; i++) {
+        cleanups[i](final);
+      }
+      this.cleanups = null;
+    }
+
+    if (owned !== null) {
+      for (i = 0; i < owned.length; i++) {
+        dispose(owned[i]);
+      }
+      this.owned = null;
+    }
+
+    if (source1 !== null) {
+      source1.cleanupSource(this.source1slot);
+      this.source1 = null;
+    }
+    if (sources !== null) {
+      // Move Cleanup All Sources
+      for (i = 0, len = sources.length; i < len; i++) {
+        const source = sources.pop()!;
+        source.cleanupSource(sourceslots!.pop()!);
+      }
     }
   }
 }
@@ -673,57 +724,10 @@ function applyDataChange(data: DataNode) {
   data.applyPendingChange();
 }
 
-function markOwnedNodesForDisposal(owned: ComputationNode[]) {
-  for (let i = 0; i < owned.length; i++) {
-    const child = owned[i];
-    child.age = RootClock.time;
-    child.state = CURRENT;
-    if (child.owned !== null) markOwnedNodesForDisposal(child.owned);
-  }
-}
-
 function updateNode(node: ComputationNode) {
   node.updateNode();
 }
 
-function cleanupComputationNode(node: ComputationNode, final: boolean) {
-  const source1 = node.source1;
-  const sources = node.sources;
-  const sourceslots = node.sourceslots;
-  const cleanups = node.cleanups;
-  const owned = node.owned;
-  let i: number;
-  let len: number;
-
-  if (cleanups !== null) {
-    for (i = 0; i < cleanups.length; i++) {
-      cleanups[i](final);
-    }
-    node.cleanups = null;
-  }
-
-  if (owned !== null) {
-    for (i = 0; i < owned.length; i++) {
-      dispose(owned[i]);
-    }
-    node.owned = null;
-  }
-
-  if (source1 !== null) {
-    source1.cleanupSource(node.source1slot);
-    node.source1 = null;
-  }
-  if (sources !== null) {
-    // Move Cleanup All Sources
-    for (i = 0, len = sources.length; i < len; i++) {
-      const source = sources.pop()!;
-      source.cleanupSource(sourceslots!.pop()!);
-    }
-  }
-}
-
 function dispose(node: ComputationNode) {
-  node.fn = null;
-  node.log = null;
-  cleanupComputationNode(node, true);
+  node.dispose();
 }
