@@ -371,6 +371,17 @@ class ComputationNode {
       return this.sources.length - 1;
     }
   }
+
+  markNodeStale() {
+    const time = RootClock.time;
+    if (this.age < time) {
+      this.age = time;
+      this.state = STALE;
+      RootClock.updates.add(this);
+      if (this.owned !== null) markOwnedNodesForDisposal(this.owned);
+      if (this.log !== null) this.log.markComputationsStale();
+    }
+  }
 }
 
 /**
@@ -429,10 +440,10 @@ class Log {
     const nodes = this.nodes;
 
     // mark all downstream nodes stale which haven't been already
-    if (node1 !== null) markNodeStale(node1);
+    if (node1 !== null) node1.markNodeStale();
     if (nodes !== null) {
       for (let i = 0, len = nodes.length; i < len; i++) {
-        markNodeStale(nodes[i]);
+        nodes[i].markNodeStale();
       }
     }
   }
@@ -643,17 +654,6 @@ function run(clock: Clock) {
 
 function applyDataChange(data: DataNode) {
   data.applyPendingChange();
-}
-
-function markNodeStale(node: ComputationNode) {
-  const time = RootClock.time;
-  if (node.age < time) {
-    node.age = time;
-    node.state = STALE;
-    RootClock.updates.add(node);
-    if (node.owned !== null) markOwnedNodesForDisposal(node.owned);
-    if (node.log !== null) node.log.markComputationsStale();
-  }
 }
 
 function markOwnedNodesForDisposal(owned: ComputationNode[]) {
