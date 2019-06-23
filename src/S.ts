@@ -33,7 +33,7 @@ export function createMemo<T>(
   fn: ComputationFn<T>,
   value?: T
 ): ReadableDataSignal<T> {
-  return RootClock.createMemo(fn, value, false, false);
+  return RootClock.createMemo(fn, value);
 }
 
 type DisposalFn<T> = (dispose: () => void) => T;
@@ -206,12 +206,15 @@ class Clock {
 
   isRunning = false;
 
+  // called from finishToplevelComputation
+  // called from event
   run() {
     const running = this.isRunning;
     let count = 0;
 
     this.isRunning = true;
 
+    // TODO: Why do we throw away any disposes we have here?
     this.disposes.reset();
 
     // for each batch ...
@@ -237,6 +240,7 @@ class Clock {
     this.isRunning = running;
   }
 
+  // called from freeze
   runFrozen<T>(fn: BasicComputationFn<T>): T {
     let result: T = undefined!;
 
@@ -244,11 +248,13 @@ class Clock {
       result = fn();
     } else {
       this.isRunning = true;
+
+      // TODO: is it safe to discard changes here?
       this.changes.reset();
 
       try {
         result = fn();
-        RootClock.event();
+        this.event();
       } finally {
         this.isRunning = false;
       }
@@ -257,6 +263,7 @@ class Clock {
     return result;
   }
 
+  // called from createRoot
   runUnowned<T>(fn: DisposalFn<T>): T {
     const owner = Owner;
     let result: T;
@@ -272,6 +279,7 @@ class Clock {
     return result;
   }
 
+  // called from createRoot
   runRoot<T>(fn: DisposalFn<T>): T {
     const owner = Owner;
     let root = getCandidateNode();
@@ -301,8 +309,11 @@ class Clock {
     return result;
   }
 
+  // called from createEffect
+  // called from createMemo
   execToplevelComputation<T>(fn: ComputationFn<T>, value: T | undefined) {
     this.isRunning = true;
+    // TODO: What happens to the disposes?
     this.changes.reset();
     this.updates.reset();
 
@@ -314,6 +325,8 @@ class Clock {
     }
   }
 
+  // called from createEffect
+  // called from createMemo
   finishToplevelComputation(
     owner: ComputationNode | null,
     listener: ComputationNode | null
@@ -330,6 +343,7 @@ class Clock {
     }
   }
 
+  // called from createEffect
   createEffect<T>(fn: ComputationFn<T>, value: T | undefined): void {
     const node = getCandidateNode();
     const owner = Owner;
@@ -347,16 +361,15 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    const recycled = recycleOrClaimNode(node, fn, value, false);
+    recycleOrClaimNode(node, fn, value, false);
 
     if (!this.isRunning) this.finishToplevelComputation(owner, listener);
   }
 
+  // called from createMemo
   createMemo<T>(
     fn: ComputationFn<T>,
-    value: T | undefined,
-    orphan: boolean,
-    sample: boolean
+    value: T | undefined
   ): ReadableDataSignal<T> {
     const node = getCandidateNode();
     const owner = Owner;
@@ -368,7 +381,7 @@ class Clock {
       );
 
     Owner = node;
-    Listener = sample ? null : node;
+    Listener = node;
 
     if (!this.isRunning) {
       value = RootClock.execToplevelComputation(fn, value);
@@ -379,7 +392,7 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    const recycled = recycleOrClaimNode(node, fn, value, orphan);
+    const recycled = recycleOrClaimNode(node, fn, value, false);
 
     if (!this.isRunning) RootClock.finishToplevelComputation(owner, listener);
 
@@ -397,9 +410,12 @@ class Clock {
     }
   }
 
+  // called from runFrozen
+  // called from DataNode.next
   event() {
     // b/c we might be under a top level createRoot(), have to preserve current root
     const owner = Owner;
+    // TODO: Why is it safe to reset updates?
     this.updates.reset();
     this.time++;
     try {
