@@ -1,3 +1,8 @@
+// TODO: make sure all functions that should be in a try block are called in try
+// TODO: Clarify types with createRoot and internal run commands on clock
+// TODO: Attempt to consolidate and factor together clock logic
+// TODO: Fix Bug https://github.com/adamhaile/S/issues/25
+
 export interface ReadableDataSignal<T> {
   // The Getter Signature
   (): T;
