@@ -288,7 +288,7 @@ class DataNode {
   current() {
     if (Listener !== null) {
       if (this.log === null) this.log = new Log();
-      logRead(this.log);
+      this.log.logRead();
     }
     return this.value;
   }
@@ -349,7 +349,7 @@ class ComputationNode {
         else updateNode(this); // checks for state === STALE internally, so don't need to check here
       }
       if (this.log === null) this.log = new Log();
-      logRead(this.log);
+      this.log.logRead();
     }
 
     return this.value;
@@ -367,6 +367,39 @@ class Log {
   node1slot = 0;
   nodes = null as null | ComputationNode[];
   nodeslots = null as null | number[];
+
+  logRead() {
+    const to = Listener!;
+    let fromslot: number;
+    const toslot =
+      to.source1 === null ? -1 : to.sources === null ? 0 : to.sources.length;
+
+    if (this.node1 === null) {
+      this.node1 = to;
+      this.node1slot = toslot;
+      fromslot = -1;
+    } else if (this.nodes === null) {
+      this.nodes = [to];
+      this.nodeslots = [toslot];
+      fromslot = 0;
+    } else {
+      fromslot = this.nodes.length;
+      this.nodes.push(to);
+      this.nodeslots!.push(toslot);
+    }
+
+    // Move this to computationNode
+    if (to.source1 === null) {
+      to.source1 = this;
+      to.source1slot = fromslot;
+    } else if (to.sources === null) {
+      to.sources = [this];
+      to.sourceslots = [fromslot];
+    } else {
+      to.sources.push(this);
+      to.sourceslots!.push(fromslot);
+    }
+  }
 }
 
 class Queue<T> {
@@ -526,40 +559,6 @@ function recycleOrClaimNode<T>(
   }
 
   return recycle;
-}
-
-// Move logRead to instance method on Log?
-function logRead(from: Log) {
-  const to = Listener!;
-  let fromslot: number;
-  const toslot =
-    to.source1 === null ? -1 : to.sources === null ? 0 : to.sources.length;
-
-  if (from.node1 === null) {
-    from.node1 = to;
-    from.node1slot = toslot;
-    fromslot = -1;
-  } else if (from.nodes === null) {
-    from.nodes = [to];
-    from.nodeslots = [toslot];
-    fromslot = 0;
-  } else {
-    fromslot = from.nodes.length;
-    from.nodes.push(to);
-    from.nodeslots!.push(toslot);
-  }
-
-  // Move this to computationNode
-  if (to.source1 === null) {
-    to.source1 = from;
-    to.source1slot = fromslot;
-  } else if (to.sources === null) {
-    to.sources = [from];
-    to.sourceslots = [fromslot];
-  } else {
-    to.sources.push(from);
-    to.sourceslots!.push(fromslot);
-  }
 }
 
 function event() {
