@@ -302,8 +302,10 @@ class Clock {
       Owner = owner;
     }
 
-    if (recycleOrClaimNode(root, null as any, undefined)) {
+    if (root.recycleNode(null as any, undefined)) {
       root = null!;
+    } else {
+      root.claimComputationNode(null as any, undefined);
     }
 
     return result;
@@ -361,7 +363,7 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    recycleOrClaimNode(node, fn, value);
+    node.recycleOrClaimNode(fn, value);
 
     if (!this.isRunning) this.finishToplevelComputation(owner, listener);
   }
@@ -392,7 +394,7 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    const recycled = recycleOrClaimNode(node, fn, value);
+    const recycled = node.recycleOrClaimNode(fn, value);
 
     if (!this.isRunning) RootClock.finishToplevelComputation(owner, listener);
 
@@ -616,6 +618,66 @@ class ComputationNode {
       }
     }
   }
+
+  claimComputationNode<T>(fn: ComputationFn<T>, value: T): void {
+    const _owner = Owner === UNOWNED ? null : Owner;
+    this.fn = fn;
+    this.value = value;
+    this.age = RootClock.time;
+
+    if (_owner !== null) {
+      if (_owner.owned === null) _owner.owned = [this];
+      else _owner.owned.push(this);
+    }
+  }
+
+  recycleNode<T>(fn: ComputationFn<T>, value: T): boolean {
+    // We cannot recycle nodes that have sources
+    if (this.source1 !== null) {
+      return false;
+    }
+    const newOwner = Owner === UNOWNED ? null : Owner;
+    if (newOwner === null) {
+      // If we have no Owner to transfer owned items or cleanups to, we cannot recycle
+      if (this.owned !== null || this.cleanups !== null) {
+        return false;
+      }
+    } else {
+      // transfer any owned items to new owner
+      if (this.owned !== null) {
+        if (newOwner.owned === null) {
+          newOwner.owned = this.owned;
+        } else {
+          for (let i = 0; i < this.owned.length; i++) {
+            newOwner.owned.push(this.owned[i]);
+          }
+        }
+        this.owned = null;
+      }
+
+      // transfer any cleanups to new owner
+      if (this.cleanups !== null) {
+        if (newOwner.cleanups === null) {
+          newOwner.cleanups = this.cleanups;
+        } else {
+          for (let i = 0; i < this.cleanups.length; i++) {
+            newOwner.cleanups.push(this.cleanups[i]);
+          }
+        }
+        this.cleanups = null;
+      }
+    }
+    LastNode = this;
+    return true;
+  }
+
+  recycleOrClaimNode<T>(fn: ComputationFn<T>, value: T): boolean {
+    const recycled = this.recycleNode(fn, value);
+    if (!recycled) {
+      this.claimComputationNode(fn, value);
+    }
+    return recycled;
+  }
 }
 
 /**
@@ -727,53 +789,6 @@ function getCandidateNode() {
   if (node === null) node = new ComputationNode();
   else LastNode = null;
   return node;
-}
-
-function recycleOrClaimNode<T>(
-  node: ComputationNode,
-  fn: ComputationFn<T>,
-  value: T
-) {
-  const _owner = Owner === null || Owner === UNOWNED ? null : Owner;
-  const recycle =
-    node.source1 === null &&
-    ((node.owned === null && node.cleanups === null) || _owner !== null);
-  let i: number;
-
-  if (recycle) {
-    LastNode = node;
-
-    if (_owner !== null) {
-      if (node.owned !== null) {
-        if (_owner.owned === null) _owner.owned = node.owned;
-        else
-          for (i = 0; i < node.owned.length; i++) {
-            _owner.owned.push(node.owned[i]);
-          }
-        node.owned = null;
-      }
-
-      if (node.cleanups !== null) {
-        if (_owner.cleanups === null) _owner.cleanups = node.cleanups;
-        else
-          for (i = 0; i < node.cleanups.length; i++) {
-            _owner.cleanups.push(node.cleanups[i]);
-          }
-        node.cleanups = null;
-      }
-    }
-  } else {
-    node.fn = fn;
-    node.value = value;
-    node.age = RootClock.time;
-
-    if (_owner !== null) {
-      if (_owner.owned === null) _owner.owned = [node];
-      else _owner.owned.push(node);
-    }
-  }
-
-  return recycle;
 }
 
 function applyDataChange(data: DataNode) {
