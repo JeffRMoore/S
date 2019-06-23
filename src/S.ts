@@ -331,11 +331,6 @@ class Clock {
       return fn(value);
     } finally {
       Owner = null;
-      // TODO: Seems unbalanced not to restore the previous listener
-      // TODO: or are we presuming the previous listener is null?
-      // TODO: Turns out our caller always managers listeners and restores
-      // TODO: The listener after this.  So this code can be removed.
-      Listener = null;
       this.isRunning = false;
     }
   }
