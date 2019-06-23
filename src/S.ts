@@ -287,7 +287,8 @@ class DataNode {
 
   current() {
     if (Listener !== null) {
-      logDataRead(this);
+      if (this.log === null) this.log = new Log();
+      logRead(this.log);
     }
     return this.value;
   }
@@ -347,13 +348,20 @@ class ComputationNode {
         if (this.state === RUNNING) throw new Error("circular dependency");
         else updateNode(this); // checks for state === STALE internally, so don't need to check here
       }
-      logComputationRead(this);
+      if (this.log === null) this.log = new Log();
+      logRead(this.log);
     }
 
     return this.value;
   }
 }
 
+/**
+ * A list of which ComputationNodes have "Seen" the Signal that the log is attached to
+ * Still no idea what a slot is.  (maybe an optimization during cleanup to avoid doing a "search")
+ * Maybe this should just link to a data structure {Node, Slot}
+ * Maybe a slab allocator?
+ */
 class Log {
   node1 = null as null | ComputationNode;
   node1slot = 0;
@@ -520,6 +528,7 @@ function recycleOrClaimNode<T>(
   return recycle;
 }
 
+// Move logRead to instance method on Log?
 function logRead(from: Log) {
   const to = Listener!;
   let fromslot: number;
@@ -540,6 +549,7 @@ function logRead(from: Log) {
     from.nodeslots!.push(toslot);
   }
 
+  // Move this to computationNode
   if (to.source1 === null) {
     to.source1 = from;
     to.source1slot = fromslot;
@@ -550,16 +560,6 @@ function logRead(from: Log) {
     to.sources.push(from);
     to.sourceslots!.push(fromslot);
   }
-}
-
-function logDataRead(data: DataNode) {
-  if (data.log === null) data.log = new Log();
-  logRead(data.log);
-}
-
-function logComputationRead(node: ComputationNode) {
-  if (node.log === null) node.log = new Log();
-  logRead(node.log);
 }
 
 function event() {
