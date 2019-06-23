@@ -288,7 +288,7 @@ class DataNode {
   current() {
     if (Listener !== null) {
       if (this.log === null) this.log = new Log();
-      this.log.logRead();
+      this.log.logRead(Listener);
     }
     return this.value;
   }
@@ -349,10 +349,26 @@ class ComputationNode {
         else updateNode(this); // checks for state === STALE internally, so don't need to check here
       }
       if (this.log === null) this.log = new Log();
-      this.log.logRead();
+      this.log.logRead(Listener);
     }
 
     return this.value;
+  }
+
+  logSource(from: Log, fromslot: number) {
+    if (this.source1 === null) {
+      this.source1 = from;
+      this.source1slot = fromslot;
+      return -1;
+    } else if (this.sources === null) {
+      this.sources = [from];
+      this.sourceslots = [fromslot];
+      return 0;
+    } else {
+      this.sources.push(from);
+      this.sourceslots!.push(fromslot);
+      return this.sources.length - 1;
+    }
   }
 }
 
@@ -368,36 +384,20 @@ class Log {
   nodes = null as null | ComputationNode[];
   nodeslots = null as null | number[];
 
-  logRead() {
-    const to = Listener!;
-    let fromslot: number;
-    const toslot =
-      to.source1 === null ? -1 : to.sources === null ? 0 : to.sources.length;
+  logRead(to: ComputationNode) {
+    let fromslot =
+      this.node1 === null ? -1 : this.nodes === null ? 0 : this.nodes.length;
+    const toslot = to.logSource(this, fromslot);
 
     if (this.node1 === null) {
       this.node1 = to;
       this.node1slot = toslot;
-      fromslot = -1;
     } else if (this.nodes === null) {
       this.nodes = [to];
       this.nodeslots = [toslot];
-      fromslot = 0;
     } else {
-      fromslot = this.nodes.length;
       this.nodes.push(to);
       this.nodeslots!.push(toslot);
-    }
-
-    // Move this to computationNode
-    if (to.source1 === null) {
-      to.source1 = this;
-      to.source1slot = fromslot;
-    } else if (to.sources === null) {
-      to.sources = [this];
-      to.sourceslots = [fromslot];
-    } else {
-      to.sources.push(this);
-      to.sourceslots!.push(fromslot);
     }
   }
 }
