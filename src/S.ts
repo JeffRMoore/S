@@ -204,11 +204,13 @@ class Clock {
   updates = new Queue<ComputationNode>(); // computations to update
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
 
+  isRunning = false;
+
   run() {
-    const running = RunningClock;
+    const running = this.isRunning;
     let count = 0;
 
-    RunningClock = this;
+    this.isRunning = true;
 
     this.disposes.reset();
 
@@ -232,23 +234,23 @@ class Clock {
       }
     }
 
-    RunningClock = running;
+    this.isRunning = running;
   }
 
   runFrozen<T>(fn: BasicComputationFn<T>): T {
     let result: T = undefined!;
 
-    if (RunningClock !== null) {
+    if (this.isRunning) {
       result = fn();
     } else {
-      RunningClock = this;
-      RunningClock.changes.reset();
+      this.isRunning = true;
+      this.changes.reset();
 
       try {
         result = fn();
         RootClock.event();
       } finally {
-        RunningClock = null;
+        this.isRunning = false;
       }
     }
 
@@ -274,6 +276,7 @@ class Clock {
     const owner = Owner;
     let root = getCandidateNode();
     let result: T;
+    let clock = this;
 
     Owner = root;
 
@@ -281,8 +284,8 @@ class Clock {
       result = fn(function _dispose() {
         if (root === null) {
           // nothing to dispose
-        } else if (RunningClock !== null) {
-          RootClock.disposes.add(root);
+        } else if (clock.isRunning) {
+          clock.disposes.add(root);
         } else {
           dispose(root);
         }
@@ -299,14 +302,15 @@ class Clock {
   }
 
   execToplevelComputation<T>(fn: ComputationFn<T>, value: T | undefined) {
-    RunningClock = this;
+    this.isRunning = true;
     this.changes.reset();
     this.updates.reset();
 
     try {
       return fn(value);
     } finally {
-      Owner = Listener = RunningClock = null;
+      Owner = Listener = null;
+      this.isRunning = false;
     }
   }
 
@@ -319,7 +323,7 @@ class Clock {
       try {
         this.run();
       } finally {
-        RunningClock = null;
+        this.isRunning = false;
         Owner = owner;
         Listener = listener;
       }
@@ -334,7 +338,7 @@ class Clock {
     Owner = node;
     Listener = node;
 
-    if (RunningClock === null) {
+    if (!this.isRunning) {
       value = this.execToplevelComputation(fn, value);
     } else {
       value = fn(value);
@@ -345,7 +349,7 @@ class Clock {
 
     const recycled = recycleOrClaimNode(node, fn, value, false);
 
-    if (RunningClock === null) this.finishToplevelComputation(owner, listener);
+    if (!this.isRunning) this.finishToplevelComputation(owner, listener);
   }
 
   createMemo<T>(
@@ -357,7 +361,6 @@ class Clock {
     const node = getCandidateNode();
     const owner = Owner;
     const listener = Listener;
-    const toplevel = RunningClock === null;
 
     if (Owner === null)
       console.warn(
@@ -367,7 +370,7 @@ class Clock {
     Owner = node;
     Listener = sample ? null : node;
 
-    if (toplevel) {
+    if (!this.isRunning) {
       value = RootClock.execToplevelComputation(fn, value);
     } else {
       value = fn(value);
@@ -378,7 +381,7 @@ class Clock {
 
     const recycled = recycleOrClaimNode(node, fn, value, orphan);
 
-    if (toplevel) RootClock.finishToplevelComputation(owner, listener);
+    if (!this.isRunning) RootClock.finishToplevelComputation(owner, listener);
 
     let _node = recycled ? null : node;
     let _value = value!;
@@ -402,8 +405,9 @@ class Clock {
     try {
       this.run();
     } finally {
-      RunningClock = Listener = null;
       Owner = owner;
+      Listener = null;
+      this.isRunning = false;
     }
   }
 }
@@ -441,7 +445,7 @@ class DataNode {
 
   next(value: any) {
     // TODO: Guard clauses?
-    if (RunningClock !== null) {
+    if (RootClock.isRunning) {
       if (this.pending !== NOTHING_PENDING) {
         // value has already been set once, check for conflicts
         if (value !== this.pending) {
@@ -693,7 +697,6 @@ const UNOWNED = new ComputationNode();
 
 // "Globals" used to keep track of current system state
 let RootClock = new Clock();
-let RunningClock = null as Clock | null; // currently running clock
 let Listener = null as ComputationNode | null; // currently listening computation
 let Owner = null as ComputationNode | null; // owner for new computations
 let LastNode = null as ComputationNode | null; // cached unused node, for re-use
