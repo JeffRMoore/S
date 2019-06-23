@@ -400,6 +400,28 @@ class Log {
       this.nodeslots!.push(toslot);
     }
   }
+
+  cleanupSource(slot: number) {
+    const nodes = this.nodes!;
+    const nodeslots = this.nodeslots!;
+    let last: ComputationNode;
+    let lastslot: number;
+    if (slot === -1) {
+      this.node1 = null;
+    } else {
+      last = nodes.pop()!;
+      lastslot = nodeslots.pop()!;
+      if (slot !== nodes.length) {
+        nodes[slot] = last;
+        nodeslots[slot] = lastslot;
+        if (lastslot === -1) {
+          last.source1slot = slot;
+        } else {
+          last.sourceslots![lastslot] = slot;
+        }
+      }
+    }
+  }
 }
 
 class Queue<T> {
@@ -685,34 +707,14 @@ function cleanupComputationNode(node: ComputationNode, final: boolean) {
   }
 
   if (source1 !== null) {
-    cleanupSource(source1, node.source1slot);
+    source1.cleanupSource(node.source1slot);
     node.source1 = null;
   }
   if (sources !== null) {
+    // Move Cleanup All Sources
     for (i = 0, len = sources.length; i < len; i++) {
-      cleanupSource(sources.pop()!, sourceslots!.pop()!);
-    }
-  }
-}
-
-function cleanupSource(source: Log, slot: number) {
-  const nodes = source.nodes!;
-  const nodeslots = source.nodeslots!;
-  let last: ComputationNode;
-  let lastslot: number;
-  if (slot === -1) {
-    source.node1 = null;
-  } else {
-    last = nodes.pop()!;
-    lastslot = nodeslots.pop()!;
-    if (slot !== nodes.length) {
-      nodes[slot] = last;
-      nodeslots[slot] = lastslot;
-      if (lastslot === -1) {
-        last.source1slot = slot;
-      } else {
-        last.sourceslots![lastslot] = slot;
-      }
+      const source = sources.pop()!;
+      source.cleanupSource(sourceslots!.pop()!);
     }
   }
 }
