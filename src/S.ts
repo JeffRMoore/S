@@ -331,8 +331,6 @@ class Clock {
     try {
       return fn(value);
     } finally {
-      // TODO: Seems unbalanced
-      Owner = null;
       this.isRunning = false;
     }
   }
