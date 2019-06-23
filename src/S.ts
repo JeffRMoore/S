@@ -41,7 +41,6 @@ type DisposalFn<T> = (dispose: () => void) => T;
 // Computation root
 // TODO: Resolve optionality of dispose in type definition
 // TODO: Understand the dispose case -- figure out if this is a RootComputation type
-// TODO: Move this logic to the Clock class
 // root<T>(fn: (dispose?: () => void) => T): T;
 export function createRoot<T>(fn: DisposalFn<T>): T {
   if (fn.length === 0) {
@@ -172,10 +171,14 @@ export function freeze<T>(fn: BasicComputationFn<T>): T {
 // Sampling a signal
 export function sample<T>(fn: BasicComputationFn<T>): T {
   let result: T;
-  const listener = Listener;
 
+  // stop listening
+  const listener = Listener;
   Listener = null;
+
   result = fn();
+
+  // restoreListening
   Listener = listener;
 
   return result;
@@ -204,6 +207,7 @@ class Clock {
   updates = new Queue<ComputationNode>(); // computations to update
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
 
+  // isRunning management is hard to follow; doesn't have logic to it
   isRunning = false;
 
   // called from finishToplevelComputation
@@ -329,18 +333,14 @@ class Clock {
 
   // called from createEffect
   // called from createMemo
-  finishToplevelComputation(
-    owner: ComputationNode | null,
-    listener: ComputationNode | null
-  ) {
+  // we should just call this on state transition to "stopped"
+  finishToplevelComputation() {
     if (this.changes.count > 0 || this.updates.count > 0) {
       this.time++;
       try {
         this.run();
       } finally {
         this.isRunning = false;
-        Owner = owner;
-        Listener = listener;
       }
     }
   }
@@ -365,7 +365,7 @@ class Clock {
 
     node.recycleOrClaimNode(fn, value);
 
-    if (!this.isRunning) this.finishToplevelComputation(owner, listener);
+    if (!this.isRunning) this.finishToplevelComputation();
   }
 
   // called from createMemo
@@ -396,7 +396,7 @@ class Clock {
 
     const recycled = node.recycleOrClaimNode(fn, value);
 
-    if (!this.isRunning) RootClock.finishToplevelComputation(owner, listener);
+    if (!this.isRunning) RootClock.finishToplevelComputation();
 
     let _node = recycled ? null : node;
     let _value = value!;
@@ -417,7 +417,7 @@ class Clock {
   event() {
     // b/c we might be under a top level createRoot(), have to preserve current root
     const owner = Owner;
-    // TODO: Why is it safe to reset updates?
+    // TODO: Why is it safe to ignore pending updates?
     this.updates.reset();
     this.time++;
     try {
