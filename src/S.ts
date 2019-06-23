@@ -273,15 +273,15 @@ class Clock {
 
   // called from createRoot
   runUnowned<T>(fn: DisposalFn<T>): T {
-    const owner = Owner;
     let result: T;
 
+    const prevOwner = Owner;
     Owner = UNOWNED;
 
     try {
       result = (fn as any)();
     } finally {
-      Owner = owner;
+      Owner = prevOwner;
     }
 
     return result;
@@ -289,31 +289,32 @@ class Clock {
 
   // called from createRoot
   runRoot<T>(fn: DisposalFn<T>): T {
-    const owner = Owner;
-    let root = getCandidateNode();
     let result: T;
     let clock = this;
 
-    Owner = root;
+    let rootComputation = getCandidateNode();
+
+    const prevOwner = Owner;
+    Owner = rootComputation;
 
     try {
       result = fn(function _dispose() {
-        if (root === null) {
+        if (rootComputation === null) {
           // nothing to dispose
         } else if (clock.isRunning) {
-          clock.disposes.add(root);
+          clock.disposes.add(rootComputation);
         } else {
-          dispose(root);
+          dispose(rootComputation);
         }
       });
     } finally {
-      Owner = owner;
+      Owner = prevOwner;
     }
 
-    if (root.recycleNode(null as any, undefined)) {
-      root = null!;
+    if (rootComputation.recycleNode(null as any, undefined)) {
+      rootComputation = null!;
     } else {
-      root.claimComputationNode(null as any, undefined);
+      rootComputation.claimComputationNode(null as any, undefined);
     }
 
     return result;
@@ -330,6 +331,7 @@ class Clock {
     try {
       return fn(value);
     } finally {
+      // TODO: Seems unbalanced
       Owner = null;
       this.isRunning = false;
     }
@@ -356,7 +358,7 @@ class Clock {
     const prevListener = Listener;
     Listener = effectComputation;
 
-    const owner = Owner;
+    const prevOwner = Owner;
     Owner = effectComputation;
 
     if (!this.isRunning) {
@@ -365,7 +367,7 @@ class Clock {
       value = fn(value);
     }
 
-    Owner = owner;
+    Owner = prevOwner;
     Listener = prevListener;
 
     effectComputation.recycleOrClaimNode(fn, value);
@@ -383,11 +385,12 @@ class Clock {
     const prevListener = Listener;
     Listener = memoComputation;
 
-    const owner = Owner;
-    if (Owner === null)
+    if (Owner === null) {
       console.warn(
         "computations created without a root or parent will never be disposed"
       );
+    }
+    const prevOwner = Owner;
     Owner = memoComputation;
 
     if (!this.isRunning) {
@@ -396,7 +399,7 @@ class Clock {
       value = fn(value);
     }
 
-    Owner = owner;
+    Owner = prevOwner;
     Listener = prevListener;
 
     const recycled = memoComputation.recycleOrClaimNode(fn, value);
@@ -421,14 +424,14 @@ class Clock {
   // called from DataNode.next
   event() {
     // b/c we might be under a top level createRoot(), have to preserve current root
-    const owner = Owner;
+    const prevOwner = Owner;
     // TODO: Why is it safe to ignore pending updates?
     this.updates.reset();
     this.time++;
     try {
       this.run();
     } finally {
-      Owner = owner;
+      Owner = prevOwner;
       Listener = null;
       this.isRunning = false;
     }
@@ -567,10 +570,10 @@ class ComputationNode {
 
   updateNode() {
     if (this.state === STALE) {
-      const owner = Owner;
       const prevListener = Listener;
       Listener = this;
 
+      const prevOwner = Owner;
       Owner = this;
 
       this.state = RUNNING;
@@ -578,7 +581,7 @@ class ComputationNode {
       this.value = this.fn!(this.value);
       this.state = CURRENT;
 
-      Owner = owner;
+      Owner = prevOwner;
       Listener = prevListener;
     }
   }
@@ -626,14 +629,14 @@ class ComputationNode {
   }
 
   claimComputationNode<T>(fn: ComputationFn<T>, value: T): void {
-    const _owner = Owner === UNOWNED ? null : Owner;
+    const newOwner = Owner === UNOWNED ? null : Owner;
     this.fn = fn;
     this.value = value;
     this.age = RootClock.time;
 
-    if (_owner !== null) {
-      if (_owner.owned === null) _owner.owned = [this];
-      else _owner.owned.push(this);
+    if (newOwner !== null) {
+      if (newOwner.owned === null) newOwner.owned = [this];
+      else newOwner.owned.push(this);
     }
   }
 
