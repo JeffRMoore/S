@@ -422,6 +422,19 @@ class Log {
       }
     }
   }
+
+  markComputationsStale() {
+    const node1 = this.node1;
+    const nodes = this.nodes;
+
+    // mark all downstream nodes stale which haven't been already
+    if (node1 !== null) markNodeStale(node1);
+    if (nodes !== null) {
+      for (let i = 0, len = nodes.length; i < len; i++) {
+        markNodeStale(nodes[i]);
+      }
+    }
+  }
 }
 
 class Queue<T> {
@@ -629,20 +642,7 @@ function run(clock: Clock) {
 
 function applyDataChange(data: DataNode) {
   data.applyPendingChange();
-  if (data.log) markComputationsStale(data.log);
-}
-
-function markComputationsStale(log: Log) {
-  const node1 = log.node1;
-  const nodes = log.nodes;
-
-  // mark all downstream nodes stale which haven't been already
-  if (node1 !== null) markNodeStale(node1);
-  if (nodes !== null) {
-    for (let i = 0, len = nodes.length; i < len; i++) {
-      markNodeStale(nodes[i]);
-    }
-  }
+  if (data.log) data.log.markComputationsStale();
 }
 
 function markNodeStale(node: ComputationNode) {
@@ -652,7 +652,7 @@ function markNodeStale(node: ComputationNode) {
     node.state = STALE;
     RootClock.updates.add(node);
     if (node.owned !== null) markOwnedNodesForDisposal(node.owned);
-    if (node.log !== null) markComputationsStale(node.log);
+    if (node.log !== null) node.log.markComputationsStale();
   }
 }
 
