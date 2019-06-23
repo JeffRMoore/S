@@ -56,40 +56,14 @@ type DisposalFn<T> = (dispose: () => void) => T;
 // Computation root
 // TODO: Resolve optionality of dispose in type definition
 // TODO: Understand the dispose case -- figure out if this is a RootComputation type
+// TODO: Move this logic to the Clock class
 // root<T>(fn: (dispose?: () => void) => T): T;
 export function createRoot<T>(fn: DisposalFn<T>): T {
-  const owner = Owner;
-  const disposer =
-    fn.length === 0
-      ? null
-      : function _dispose() {
-          if (root === null) {
-            // nothing to dispose
-          } else if (RunningClock !== null) {
-            RootClock.disposes.add(root);
-          } else {
-            dispose(root);
-          }
-        };
-  let root = disposer === null ? UNOWNED : getCandidateNode();
-  let result: T;
-
-  Owner = root;
-
-  try {
-    result = disposer === null ? (fn as any)() : fn(disposer);
-  } finally {
-    Owner = owner;
+  if (fn.length === 0) {
+    return RootClock.runUnowned(fn);
+  } else {
+    return RootClock.runRoot(fn);
   }
-
-  if (
-    disposer !== null &&
-    recycleOrClaimNode(root, null as any, undefined, true)
-  ) {
-    root = null!;
-  }
-
-  return result;
 }
 
 type DataSignalSpec<T> = ReadableDataSignal<T>[] | ReadableDataSignal<T>[];
@@ -291,6 +265,49 @@ class Clock {
       } finally {
         RunningClock = null;
       }
+    }
+
+    return result;
+  }
+
+  runUnowned<T>(fn: DisposalFn<T>): T {
+    const owner = Owner;
+    let result: T;
+
+    Owner = UNOWNED;
+
+    try {
+      result = (fn as any)();
+    } finally {
+      Owner = owner;
+    }
+
+    return result;
+  }
+
+  runRoot<T>(fn: DisposalFn<T>): T {
+    const owner = Owner;
+    let root = getCandidateNode();
+    let result: T;
+
+    Owner = root;
+
+    try {
+      result = fn(function _dispose() {
+        if (root === null) {
+          // nothing to dispose
+        } else if (RunningClock !== null) {
+          RootClock.disposes.add(root);
+        } else {
+          dispose(root);
+        }
+      });
+    } finally {
+      Owner = owner;
+    }
+
+    if (recycleOrClaimNode(root, null as any, undefined, true)) {
+      root = null!;
     }
 
     return result;
@@ -629,10 +646,16 @@ let Owner = null as ComputationNode | null; // owner for new computations
 let LastNode = null as ComputationNode | null; // cached unused node, for re-use
 
 // Functions
+
+// TODO: optimization for returning values from makeComputationNode.  Schedule for removal
 const makeComputationNodeResult = {
   node: null as null | ComputationNode,
   value: undefined as any
 };
+
+// TODO: Try to move the run functionality into Clock for refactoring
+// called from createMemo
+// called from createEffect
 function makeComputationNode<T>(
   fn: ComputationFn<T>,
   value: T | undefined,
@@ -666,6 +689,9 @@ function makeComputationNode<T>(
   return makeComputationNodeResult;
 }
 
+// Use a previously recycled Node or create a new one
+// called from makeComputationNode
+// called from createRoot
 function getCandidateNode() {
   let node = LastNode;
   if (node === null) node = new ComputationNode();
