@@ -311,7 +311,7 @@ class Clock {
       Owner = prevOwner;
     }
 
-    if (rootComputation.recycleNode(null as any, undefined)) {
+    if (rootComputation.recycleNode()) {
       rootComputation = null!;
     } else {
       rootComputation.claimComputationNode(null as any, undefined);
@@ -356,6 +356,11 @@ class Clock {
     const prevListener = Listener;
     Listener = effectComputation;
 
+    if (Owner === null) {
+      console.warn(
+        "computations created without a root or parent will never be disposed"
+      );
+    }
     const prevOwner = Owner;
     Owner = effectComputation;
 
@@ -368,7 +373,10 @@ class Clock {
     Owner = prevOwner;
     Listener = prevListener;
 
-    effectComputation.recycleOrClaimNode(fn, value);
+    const recycled = effectComputation.recycleNode();
+    if (!recycled) {
+      effectComputation.claimComputationNode(fn, value);
+    }
 
     if (!this.isRunning) this.finishToplevelComputation();
   }
@@ -400,7 +408,10 @@ class Clock {
     Owner = prevOwner;
     Listener = prevListener;
 
-    const recycled = memoComputation.recycleOrClaimNode(fn, value);
+    const recycled = memoComputation.recycleNode();
+    if (!recycled) {
+      memoComputation.claimComputationNode(fn, value);
+    }
 
     if (!this.isRunning) RootClock.finishToplevelComputation();
 
@@ -638,7 +649,7 @@ class ComputationNode {
     }
   }
 
-  recycleNode<T>(fn: ComputationFn<T>, value: T): boolean {
+  recycleNode<T>(): boolean {
     // We cannot recycle nodes that have sources
     if (this.source1 !== null) {
       return false;
@@ -676,14 +687,6 @@ class ComputationNode {
     }
     LastNode = this;
     return true;
-  }
-
-  recycleOrClaimNode<T>(fn: ComputationFn<T>, value: T): boolean {
-    const recycled = this.recycleNode(fn, value);
-    if (!recycled) {
-      this.claimComputationNode(fn, value);
-    }
-    return recycled;
   }
 }
 
