@@ -302,7 +302,7 @@ class Clock {
       Owner = owner;
     }
 
-    if (recycleOrClaimNode(root, null as any, undefined, true)) {
+    if (recycleOrClaimNode(root, null as any, undefined)) {
       root = null!;
     }
 
@@ -361,7 +361,7 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    recycleOrClaimNode(node, fn, value, false);
+    recycleOrClaimNode(node, fn, value);
 
     if (!this.isRunning) this.finishToplevelComputation(owner, listener);
   }
@@ -392,7 +392,7 @@ class Clock {
     Owner = owner;
     Listener = listener;
 
-    const recycled = recycleOrClaimNode(node, fn, value, false);
+    const recycled = recycleOrClaimNode(node, fn, value);
 
     if (!this.isRunning) RootClock.finishToplevelComputation(owner, listener);
 
@@ -732,10 +732,9 @@ function getCandidateNode() {
 function recycleOrClaimNode<T>(
   node: ComputationNode,
   fn: ComputationFn<T>,
-  value: T,
-  orphan: boolean
+  value: T
 ) {
-  const _owner = orphan || Owner === null || Owner === UNOWNED ? null : Owner;
+  const _owner = Owner === null || Owner === UNOWNED ? null : Owner;
   const recycle =
     node.source1 === null &&
     ((node.owned === null && node.cleanups === null) || _owner !== null);
