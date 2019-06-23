@@ -260,6 +260,37 @@ class Clock {
   changes = new Queue<DataNode>(); // batched changes to data nodes
   updates = new Queue<ComputationNode>(); // computations to update
   disposes = new Queue<ComputationNode>(); // disposals to run after current batch of updates finishes
+
+  run() {
+    const running = RunningClock;
+    let count = 0;
+
+    RunningClock = this;
+
+    this.disposes.reset();
+
+    // for each batch ...
+    while (
+      this.changes.count !== 0 ||
+      this.updates.count !== 0 ||
+      this.disposes.count !== 0
+    ) {
+      if (count > 0)
+        // don't tick on first run, or else we expire already scheduled updates
+        this.time++;
+
+      this.changes.run(applyDataChange);
+      this.updates.run(updateNode);
+      this.disposes.run(dispose);
+
+      // if there are still changes after excessive batches, assume runaway
+      if (count++ > 1e5) {
+        throw new Error("Runaway clock detected");
+      }
+    }
+
+    RunningClock = running;
+  }
 }
 
 const NOTHING_PENDING = {};
@@ -612,7 +643,7 @@ function finishToplevelComputation(
   if (RootClock.changes.count > 0 || RootClock.updates.count > 0) {
     RootClock.time++;
     try {
-      run(RootClock);
+      RootClock.run();
     } finally {
       RunningClock = null;
       Owner = owner;
@@ -682,42 +713,11 @@ function event() {
   RootClock.updates.reset();
   RootClock.time++;
   try {
-    run(RootClock);
+    RootClock.run();
   } finally {
     RunningClock = Listener = null;
     Owner = owner;
   }
-}
-
-function run(clock: Clock) {
-  const running = RunningClock;
-  let count = 0;
-
-  RunningClock = clock;
-
-  clock.disposes.reset();
-
-  // for each batch ...
-  while (
-    clock.changes.count !== 0 ||
-    clock.updates.count !== 0 ||
-    clock.disposes.count !== 0
-  ) {
-    if (count > 0)
-      // don't tick on first run, or else we expire already scheduled updates
-      clock.time++;
-
-    clock.changes.run(applyDataChange);
-    clock.updates.run(updateNode);
-    clock.disposes.run(dispose);
-
-    // if there are still changes after excessive batches, assume runaway
-    if (count++ > 1e5) {
-      throw new Error("Runaway clock detected");
-    }
-  }
-
-  RunningClock = running;
 }
 
 function applyDataChange(data: DataNode) {
