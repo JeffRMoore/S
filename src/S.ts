@@ -207,23 +207,7 @@ export function createValueSignal<T>(
 
 // Batching changes
 export function freeze<T>(fn: BasicComputationFn<T>): T {
-  let result: T = undefined!;
-
-  if (RunningClock !== null) {
-    result = fn();
-  } else {
-    RunningClock = RootClock;
-    RunningClock.changes.reset();
-
-    try {
-      result = fn();
-      event();
-    } finally {
-      RunningClock = null;
-    }
-  }
-
-  return result;
+  return RootClock.runFrozen(fn);
 }
 
 // Sampling a signal
@@ -290,6 +274,26 @@ class Clock {
     }
 
     RunningClock = running;
+  }
+
+  runFrozen<T>(fn: BasicComputationFn<T>): T {
+    let result: T = undefined!;
+
+    if (RunningClock !== null) {
+      result = fn();
+    } else {
+      RunningClock = this;
+      RunningClock.changes.reset();
+
+      try {
+        result = fn();
+        event();
+      } finally {
+        RunningClock = null;
+      }
+    }
+
+    return result;
   }
 }
 
