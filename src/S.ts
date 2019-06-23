@@ -295,6 +295,34 @@ class Clock {
 
     return result;
   }
+
+  execToplevelComputation<T>(fn: ComputationFn<T>, value: T | undefined) {
+    RunningClock = this;
+    this.changes.reset();
+    this.updates.reset();
+
+    try {
+      return fn(value);
+    } finally {
+      Owner = Listener = RunningClock = null;
+    }
+  }
+
+  finishToplevelComputation(
+    owner: ComputationNode | null,
+    listener: ComputationNode | null
+  ) {
+    if (this.changes.count > 0 || this.updates.count > 0) {
+      this.time++;
+      try {
+        this.run();
+      } finally {
+        RunningClock = null;
+        Owner = owner;
+        Listener = listener;
+      }
+    }
+  }
 }
 
 const NOTHING_PENDING = {};
@@ -607,7 +635,7 @@ function makeComputationNode<T>(
   Listener = sample ? null : node;
 
   if (toplevel) {
-    value = execToplevelComputation(fn, value);
+    value = RootClock.execToplevelComputation(fn, value);
   } else {
     value = fn(value);
   }
@@ -617,43 +645,12 @@ function makeComputationNode<T>(
 
   const recycled = recycleOrClaimNode(node, fn, value, orphan);
 
-  if (toplevel) finishToplevelComputation(owner, listener);
+  if (toplevel) RootClock.finishToplevelComputation(owner, listener);
 
   makeComputationNodeResult.node = recycled ? null : node;
   makeComputationNodeResult.value = value!;
 
   return makeComputationNodeResult;
-}
-
-function execToplevelComputation<T>(
-  fn: ComputationFn<T>,
-  value: T | undefined
-) {
-  RunningClock = RootClock;
-  RootClock.changes.reset();
-  RootClock.updates.reset();
-
-  try {
-    return fn(value);
-  } finally {
-    Owner = Listener = RunningClock = null;
-  }
-}
-
-function finishToplevelComputation(
-  owner: ComputationNode | null,
-  listener: ComputationNode | null
-) {
-  if (RootClock.changes.count > 0 || RootClock.updates.count > 0) {
-    RootClock.time++;
-    try {
-      RootClock.run();
-    } finally {
-      RunningClock = null;
-      Owner = owner;
-      Listener = listener;
-    }
-  }
 }
 
 function getCandidateNode() {
