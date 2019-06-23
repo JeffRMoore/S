@@ -382,6 +382,23 @@ class ComputationNode {
       if (this.log !== null) this.log.markComputationsStale();
     }
   }
+
+  updateNode() {
+    if (this.state === STALE) {
+      const owner = Owner;
+      const listener = Listener;
+
+      Owner = Listener = this;
+
+      this.state = RUNNING;
+      cleanupComputationNode(this, false);
+      this.value = this.fn!(this.value);
+      this.state = CURRENT;
+
+      Owner = owner;
+      Listener = listener;
+    }
+  }
 }
 
 /**
@@ -665,22 +682,8 @@ function markOwnedNodesForDisposal(owned: ComputationNode[]) {
   }
 }
 
-// Only called from ComputationNode.current
 function updateNode(node: ComputationNode) {
-  if (node.state === STALE) {
-    const owner = Owner;
-    const listener = Listener;
-
-    Owner = Listener = node;
-
-    node.state = RUNNING;
-    cleanupComputationNode(node, false);
-    node.value = node.fn!(node.value);
-    node.state = CURRENT;
-
-    Owner = owner;
-    Listener = listener;
-  }
+  node.updateNode();
 }
 
 function cleanupComputationNode(node: ComputationNode, final: boolean) {
