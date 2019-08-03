@@ -1,7 +1,24 @@
+// TODO: --- Priorities
 // TODO: make sure all functions that should be in a try block are called in try
 // TODO: Clarify types with createRoot and internal run commands on clock
 // TODO: Attempt to consolidate and factor together clock logic
 // TODO: Fix Bug https://github.com/adamhaile/S/issues/25
+// TODO: refactor createDependentEffect
+// TODO: refactor event
+// TODO: Tighten up Types to remove stray null! declarations
+// TODO: Fix Benchmarks
+// TODO: Document misc optimizations
+// TODO: Change DataSignal to [getter, setter] pattern
+
+// INVESTIGATE:
+// Maybe a builder type pattern might be better were data is collected
+// in the "live" phase by a different kind of object that is used for
+// a "committed" phase where dependencies cannot change
+
+// INVESTIGATE:
+// slab allocation in globals instead of fine grained object creation
+// or difficult to understand transitions between storage stages
+// (linked list maybe)
 
 export interface ReadableDataSignal<T> {
   // The Getter Signature
@@ -104,10 +121,11 @@ export function createDependentEffect<T>(
     // TODO: Something weird with the listener?
     const prevListener = Listener;
 
-    forceDependencies();
+    forceDependencies(); // Reading dependencies cannot change the current listener (argument for "sample")
     if (waiting) {
       waiting = false;
     } else {
+      // TODO: This is really "Sample" operation
       Listener = null; // TODO: Maybe we should stop listening before forcing dependencies?
       value = fn(value);
       Listener = prevListener;
@@ -450,7 +468,7 @@ class Clock {
       this.run();
     } finally {
       Owner = prevOwner;
-      Listener = null;
+      Listener = null; // TODO: Did we really mean to do this??!?!??
       this.isRunning = false;
     }
   }
